@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -96,8 +97,11 @@ export default function StaffPage() {
     }
 
     addDocumentNonBlocking(collection(firestore, "staffMembers"), staffData)
-    toast({ title: "Staff Created", description: "Personnel added to registry." })
-    setIsAddDialogOpen(false)
+    
+    setTimeout(() => {
+      toast({ title: "Staff Created", description: "Personnel added to registry." })
+      setIsAddDialogOpen(false)
+    }, 0)
   }
 
   const handleUpdateStaff = (e: React.FormEvent<HTMLFormElement>) => {
@@ -115,17 +119,23 @@ export default function StaffPage() {
     }
 
     updateDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id), updatedData)
-    toast({ title: "Staff Updated", description: "Record modified successfully." })
-    setIsEditDialogOpen(false)
-    setSelectedStaff(null)
+    
+    setTimeout(() => {
+      toast({ title: "Staff Updated", description: "Record modified successfully." })
+      setIsEditDialogOpen(false)
+      setSelectedStaff(null)
+    }, 0)
   }
 
   const handleDeleteStaff = () => {
     if (!firestore || !selectedStaff) return
     deleteDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id))
-    toast({ variant: "destructive", title: "Record Deleted", description: "Staff member removed from system." })
-    setIsDeleteDialogOpen(false)
-    setSelectedStaff(null)
+    
+    setTimeout(() => {
+      toast({ variant: "destructive", title: "Record Deleted", description: "Staff member removed from system." })
+      setIsDeleteDialogOpen(false)
+      setSelectedStaff(null)
+    }, 0)
   }
 
   if (isAuthLoading || !user) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>

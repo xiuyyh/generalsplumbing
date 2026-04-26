@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -112,11 +113,14 @@ export default function InventoryPage() {
     }
 
     addDocumentNonBlocking(collection(firestore, "inventoryItems"), newItem)
-    toast({
-      title: "Item Created",
-      description: `${newItem.name} added to catalog.`,
-    })
-    setIsAddDialogOpen(false)
+    
+    setTimeout(() => {
+      toast({
+        title: "Item Created",
+        description: `${newItem.name} added to catalog.`,
+      })
+      setIsAddDialogOpen(false)
+    }, 0)
   }
 
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -135,12 +139,14 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     updateDocumentNonBlocking(itemRef, updatedData)
     
-    toast({
-      title: "Item Updated",
-      description: `${updatedData.name} record saved.`,
-    })
-    setIsEditDialogOpen(false)
-    setSelectedItem(null)
+    setTimeout(() => {
+      toast({
+        title: "Item Updated",
+        description: `${updatedData.name} record saved.`,
+      })
+      setIsEditDialogOpen(false)
+      setSelectedItem(null)
+    }, 0)
   }
 
   const handleRestock = () => {
@@ -153,13 +159,15 @@ export default function InventoryPage() {
       currentStock: newStock
     })
 
-    toast({
-      title: "Stock Updated",
-      description: `Added ${restockAmount} to ${selectedItem.name}.`,
-    })
-    setIsRestockDialogOpen(false)
-    setRestockAmount(0)
-    setSelectedItem(null)
+    setTimeout(() => {
+      toast({
+        title: "Stock Updated",
+        description: `Added ${restockAmount} to ${selectedItem.name}.`,
+      })
+      setIsRestockDialogOpen(false)
+      setRestockAmount(0)
+      setSelectedItem(null)
+    }, 0)
   }
 
   const handleDelete = () => {
@@ -168,13 +176,15 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     deleteDocumentNonBlocking(itemRef)
     
-    toast({
-      variant: "destructive",
-      title: "Item Deleted",
-      description: `${selectedItem.name} removed from catalog.`,
-    })
-    setIsDeleteDialogOpen(false)
-    setSelectedItem(null)
+    setTimeout(() => {
+      toast({
+        variant: "destructive",
+        title: "Item Deleted",
+        description: `${selectedItem.name} removed from catalog.`,
+      })
+      setIsDeleteDialogOpen(false)
+      setSelectedItem(null)
+    }, 0)
   }
 
   if (isUserLoading || !user) {

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -104,9 +105,12 @@ export default function DispatchPage() {
   const handleDeleteDispatch = () => {
     if (!firestore || !selectedDispatch) return
     deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", selectedDispatch.id))
-    toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
-    setIsDeleteDialogOpen(false)
-    setSelectedDispatch(null)
+    
+    setTimeout(() => {
+      toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
+      setIsDeleteDialogOpen(false)
+      setSelectedDispatch(null)
+    }, 0)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

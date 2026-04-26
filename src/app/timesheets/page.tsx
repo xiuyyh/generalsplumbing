@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -86,10 +87,13 @@ export default function TimesheetsPage() {
   const handleDeleteEntry = () => {
     if (!firestore || !selectedEntry) return
     deleteDocumentNonBlocking(doc(firestore, "timeEntries", selectedEntry.id))
-    toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
-    setIsDeleteDialogOpen(false)
-    setIsDetailsOpen(false)
-    setSelectedEntry(null)
+    
+    setTimeout(() => {
+      toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
+      setIsDeleteDialogOpen(false)
+      setIsDetailsOpen(false)
+      setSelectedEntry(null)
+    }, 0)
   }
 
   return (

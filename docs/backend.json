@@ -1,299 +1,106 @@
 {
   "entities": {
     "StaffMember": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "StaffMember",
       "type": "object",
       "description": "Represents an individual staff member or employee within Generals Plumbing.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the StaffMember entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the staff member."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the staff member."
-        },
-        "officialRole": {
-          "type": "string",
-          "description": "The official job role or title of the staff member (e.g., 'Plumber', 'Apprentice', 'Manager')."
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical residential or mailing address of the staff member."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the staff member.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The contact phone number of the staff member."
-        },
-        "hireDate": {
-          "type": "string",
-          "description": "The date when the staff member was hired.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "officialRole": { "type": "string" },
+        "address": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phoneNumber": { "type": "string" },
+        "hireDate": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "officialRole",
-        "address",
-        "email"
-      ]
+      "required": ["id", "firstName", "lastName", "officialRole", "address", "email"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "type": "object",
+      "description": "Global application configurations.",
+      "properties": {
+        "signupDisabled": { "type": "boolean" },
+        "chatId": { "type": "string", "description": "Telegram Chat ID for notifications." }
+      }
     },
     "TimeEntry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "TimeEntry",
       "type": "object",
-      "description": "Records the clock-in and clock-out times for a staff member's work shift.",
+      "description": "Records clock-in/out times for staff shifts.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the TimeEntry entity."
-        },
-        "staffMemberId": {
-          "type": "string",
-          "description": "Reference to the StaffMember who created this time entry. (Relationship: StaffMember 1:N TimeEntry)"
-        },
-        "clockInTime": {
-          "type": "string",
-          "description": "The date and time when the staff member clocked in.",
-          "format": "date-time"
-        },
-        "clockOutTime": {
-          "type": "string",
-          "description": "The date and time when the staff member clocked out. This can be null if the shift is ongoing.",
-          "format": "date-time"
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or comments for this specific shift."
-        }
+        "id": { "type": "string" },
+        "staffMemberId": { "type": "string" },
+        "clockInTime": { "type": "string", "format": "date-time" },
+        "clockOutTime": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
       },
-      "required": [
-        "id",
-        "staffMemberId",
-        "clockInTime"
-      ]
+      "required": ["id", "staffMemberId", "clockInTime"]
     },
     "InventoryItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InventoryItem",
       "type": "object",
-      "description": "Represents a single type of plumbing part, tool, or supply managed in inventory.",
+      "description": "Plumbing part or supply in inventory.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the InventoryItem entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The common name of the inventory item (e.g., 'PVC Pipe 2 inch', 'Adjustable Wrench')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the inventory item, including specifications."
-        },
-        "sku": {
-          "type": "string",
-          "description": "The Stock Keeping Unit, a unique product code for the inventory item."
-        },
-        "currentStock": {
-          "type": "number",
-          "description": "The current quantity of the item available in stock."
-        },
-        "reorderThreshold": {
-          "type": "number",
-          "description": "The minimum stock level at which a reorder should be triggered."
-        },
-        "unitOfMeasure": {
-          "type": "string",
-          "description": "The unit in which the item is measured (e.g., 'each', 'meter', 'box', 'gallon')."
-        },
-        "pricePerUnit": {
-          "type": "number",
-          "description": "The cost or retail price per unit of the inventory item."
-        },
-        "location": {
-          "type": "string",
-          "description": "The physical location where the inventory item is stored (e.g., 'Warehouse A - Shelf 3', 'Van 1')."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "sku": { "type": "string" },
+        "currentStock": { "type": "number" },
+        "reorderThreshold": { "type": "number" },
+        "unitOfMeasure": { "type": "string" },
+        "pricePerUnit": { "type": "number" }
       },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "sku",
-        "currentStock",
-        "reorderThreshold",
-        "unitOfMeasure"
-      ]
+      "required": ["id", "name", "sku", "currentStock"]
     },
     "InventoryDispatch": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InventoryDispatch",
       "type": "object",
-      "description": "Records the dispatch or usage of inventory items, linking them to staff and purposes.",
+      "description": "Records the dispatch or usage of inventory items.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the InventoryDispatch entity."
-        },
-        "inventoryItemId": {
-          "type": "string",
-          "description": "Reference to the InventoryItem that was dispatched. (Relationship: InventoryItem 1:N InventoryDispatch)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The quantity of the inventory item dispatched."
-        },
-        "dispatchDateTime": {
-          "type": "string",
-          "description": "The date and time when the item was dispatched.",
-          "format": "date-time"
-        },
-        "dispatchedByStaffMemberId": {
-          "type": "string",
-          "description": "Reference to the StaffMember who recorded the dispatch. (Relationship: StaffMember 1:N InventoryDispatch)"
-        },
-        "assignedToStaffMemberId": {
-          "type": "string",
-          "description": "Reference to the StaffMember (e.g., technician) to whom the item was assigned or for whose job it was used. (Relationship: StaffMember 1:N InventoryDispatch)"
-        },
-        "purpose": {
-          "type": "string",
-          "description": "The reason or context for the dispatch (e.g., 'Job #12345', 'Truck Restock', 'Internal Use')."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or details regarding this specific inventory dispatch."
-        }
+        "id": { "type": "string" },
+        "inventoryItemId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "dispatchDateTime": { "type": "string", "format": "date-time" },
+        "assignedToStaffMemberId": { "type": "string" },
+        "purpose": { "type": "string" },
+        "deliveryAddress": { "type": "string" }
       },
-      "required": [
-        "id",
-        "inventoryItemId",
-        "quantity",
-        "dispatchDateTime",
-        "dispatchedByStaffMemberId",
-        "assignedToStaffMemberId",
-        "purpose"
-      ]
+      "required": ["id", "inventoryItemId", "quantity", "dispatchDateTime", "assignedToStaffMemberId"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores profile information for authenticated users, crucially linking 'request.auth.uid' to their corresponding 'StaffMember' ID. This is used for self-referential authorization checks, allowing a user to find their associated staff record.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique Firebase Authentication User ID (UID) of the authenticated user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "AdminRole",
-          "schema": {
-            "$ref": "#/backend/entities/AdminRole"
-          },
-          "description": "A sentinel collection for Database Access Control (DBAC). The existence of a document at this path signifies that the specified 'userId' possesses administrator privileges. This provides Authorization Independence for global role checks.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique Firebase Authentication User ID (UID) of the user designated as an administrator."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/staffMembers/{staffMemberId}",
-        "definition": {
-          "entityName": "StaffMember",
-          "schema": {
-            "$ref": "#/backend/entities/StaffMember"
-          },
-          "description": "Contains detailed information about each staff member. Access is restricted: only administrators can create, update, or delete entries, while all authenticated users can read for reference.",
-          "params": [
-            {
-              "name": "staffMemberId",
-              "description": "The unique identifier for a StaffMember document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/timeEntries/{timeEntryId}",
-        "definition": {
-          "entityName": "TimeEntry",
-          "schema": {
-            "$ref": "#/backend/entities/TimeEntry"
-          },
-          "description": "Records clock-in and clock-out events for staff. Includes denormalized 'staffMemberId' for Authorization Independence, enabling direct checks within security rules without 'get()' calls to the 'staffMembers' collection. Only administrators can create or update entries (check in/out workers), while staff members can only read their own entries.",
-          "params": [
-            {
-              "name": "timeEntryId",
-              "description": "The unique identifier for a TimeEntry document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/inventoryItems/{inventoryItemId}",
-        "definition": {
-          "entityName": "InventoryItem",
-          "schema": {
-            "$ref": "#/backend/entities/InventoryItem"
-          },
-          "description": "Manages details and current stock for each inventory item in the catalog. All authenticated users can read (for browsing the catalog), but only administrators can create, update, or delete items.",
-          "params": [
-            {
-              "name": "inventoryItemId",
-              "description": "The unique identifier for an InventoryItem document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/inventoryDispatches/{inventoryDispatchId}",
-        "definition": {
-          "entityName": "InventoryDispatch",
-          "schema": {
-            "$ref": "#/backend/entities/InventoryDispatch"
-          },
-          "description": "Records when inventory items are dispatched, including quantities and purpose. Includes denormalized 'inventoryItemId', 'dispatchedByStaffMemberId', and 'assignedToStaffMemberId' for Authorization Independence. Staff members can create dispatches they are responsible for, administrators can create any dispatch, and both can read relevant entries (their own or all for admins).",
-          "params": [
-            {
-              "name": "inventoryDispatchId",
-              "description": "The unique identifier for an InventoryDispatch document."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to be secure, scalable, and easily debuggable, prioritizing Authorization Independence and Structural Segregation. \n\n**Authorization Independence:**\n1.  **Admin Roles:** The `/roles_admin/{userId}` collection serves as a DBAC (Database Access Control) mechanism. An authenticated user's administrative status is determined by the *existence* of a document at `/roles_admin/$(request.auth.uid)`, allowing for a simple `exists()` check in security rules. This avoids `get()` calls to other collections for role verification.\n2.  **Time Entries:** Each `TimeEntry` document in `/timeEntries/{timeEntryId}` explicitly includes the `staffMemberId`. This denormalization means that security rules verifying ownership or association for a time entry can directly reference `resource.data.staffMemberId`, eliminating the need for `get()` calls to a parent `StaffMember` document. This allows for atomic updates and consistent rule evaluation.\n3.  **Inventory Dispatches:** Similarly, each `InventoryDispatch` document in `/inventoryDispatches/{inventoryDispatchId}` denormalizes `dispatchedByStaffMemberId` and `assignedToStaffMemberId`. This allows security rules to evaluate access based on the document's own data, maintaining Authorization Independence and supporting atomic operations.\n4.  **User-Staff Linking:** A dedicated `/users/{userId}` collection links the Firebase Authentication `uid` (which is `request.auth.uid`) to the corresponding `staffMemberId`. While retrieving this `staffMemberId` for the *current user* requires a `get()` call (e.g., `get(/users/$(request.auth.uid)).data.staffMemberId`), this is an accepted pattern as it retrieves the *requesting user's own identity attribute* rather than establishing a hierarchical dependency for unrelated documents. This `get()` does not break the spirit of Authorization Independence as it's not used to authorize access to *other* documents based on their parent's data.\n\n**QAPs (Queries as Authorization Policies):**\n1.  **Structural Segregation:** Each collection (`/staffMembers`, `/timeEntries`, `/inventoryItems`, `/inventoryDispatches`) maintains a homogeneous security posture. For instance, `/inventoryItems` is readable by all authenticated users but writable only by administrators, enabling secure `list` queries for all users to browse the catalog. Private/admin-only data is not mixed with publicly readable data in the same collection.\n2.  **Denormalized IDs for Filtering:** For `TimeEntry` and `InventoryDispatch` collections, the `staffMemberId`, `dispatchedByStaffMemberId`, and `assignedToStaffMemberId` fields are explicitly present in each document. This enables efficient and secure `list` queries with filters like `query.where('staffMemberId', '==', request.auth.uid)` directly within the rules, ensuring users only retrieve data they are authorized to see, without relying on insecure client-side filtering.\n\n**Overall:** This design facilitates clear, concise, and robust security rules, minimizes performance overhead by avoiding unnecessary cross-document lookups, and supports efficient data retrieval for various use cases."
+    "/appSettings/{settingId}": {
+      "schema": "#/backend/entities/AppSetting",
+      "description": "Global application settings (auth toggle, telegram config)."
+    },
+    "/users/{userId}": {
+      "schema": "#/backend/entities/User",
+      "description": "User profile mapping."
+    },
+    "/roles_admin/{userId}": {
+      "schema": "#/backend/entities/AdminRole",
+      "description": "Admin role sentinel."
+    },
+    "/staffMembers/{staffMemberId}": {
+      "schema": "#/backend/entities/StaffMember",
+      "description": "Staff registry."
+    },
+    "/timeEntries/{timeEntryId}": {
+      "schema": "#/backend/entities/TimeEntry",
+      "description": "Attendance logs."
+    },
+    "/inventoryItems/{inventoryItemId}": {
+      "schema": "#/backend/entities/InventoryItem",
+      "description": "Material catalog."
+    },
+    "/inventoryDispatches/{inventoryDispatchId}": {
+      "schema": "#/backend/entities/InventoryDispatch",
+      "description": "Usage history."
+    }
   }
 }

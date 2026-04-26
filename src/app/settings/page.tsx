@@ -13,12 +13,15 @@ import {
 } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 
 export default function SettingsPage() {
   const { user } = useUser()
   const firestore = useFirestore()
+  const [isSaving, setIsSaving] = useState(false)
 
   const adminRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -26,28 +29,40 @@ export default function SettingsPage() {
   }, [firestore, user])
   const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
 
-  const settingsRef = useMemoFirebase(() => {
+  const authSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null
     return doc(firestore, "appSettings", "auth")
   }, [firestore])
-  const { data: authSettings, isLoading: isSettingsLoading } = useDoc(settingsRef)
+  const { data: authSettings, isLoading: isAuthLoading } = useDoc(authSettingsRef)
+
+  const telegramSettingsRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "appSettings", "telegram")
+  }, [firestore])
+  const { data: telegramSettings, isLoading: isTelLoading } = useDoc(telegramSettingsRef)
 
   const handleToggleSignup = (checked: boolean) => {
-    if (!settingsRef) return
-    
-    setDocumentNonBlocking(settingsRef, { 
-      signupDisabled: checked 
-    }, { merge: true })
-
+    if (!authSettingsRef) return
+    setDocumentNonBlocking(authSettingsRef, { signupDisabled: checked }, { merge: true })
     toast({
       title: checked ? "Sign-ups Disabled" : "Sign-ups Enabled",
-      description: checked 
-        ? "The public registration tab has been removed from the portal." 
-        : "The registration tab is now active for new users.",
+      description: checked ? "Public registration restricted." : "Registration portal active.",
     })
   }
 
-  if (isAdminLoading || isSettingsLoading) {
+  const handleSaveTelegram = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!telegramSettingsRef) return
+    setIsSaving(true)
+    const formData = new FormData(e.currentTarget)
+    const chatId = formData.get("chatId") as string
+
+    setDocumentNonBlocking(telegramSettingsRef, { chatId }, { merge: true })
+    toast({ title: "Telegram Settings Saved", description: "Chat ID updated for notifications." })
+    setIsSaving(false)
+  }
+
+  if (isAdminLoading || isAuthLoading || isTelLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
@@ -75,7 +90,8 @@ export default function SettingsPage() {
         <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Global Configuration Panel</p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6 pb-12">
+        {/* Auth Section */}
         <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
           <CardHeader className="bg-black text-white p-4">
             <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
@@ -88,10 +104,7 @@ export default function SettingsPage() {
                 <Label className="text-sm font-black uppercase flex items-center gap-2">
                   <UserPlus className="h-4 w-4" /> Disable Public Sign-ups
                 </Label>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">
-                  When active, the registration portal will be hidden.<br/>
-                  New accounts must be manually authorized by an admin.
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Registration portal restricted to existing admins.</p>
               </div>
               <Switch 
                 checked={!!authSettings?.signupDisabled} 
@@ -99,13 +112,33 @@ export default function SettingsPage() {
                 className="data-[state=checked]:bg-black"
               />
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="p-4 border-2 border-black border-dashed bg-destructive/5 text-destructive">
-              <p className="text-[9px] font-black uppercase text-center leading-tight">
-                Warning: Modifying system settings affects all users immediately.<br/>
-                Ensure you have alternative account creation methods if disabling sign-ups.
-              </p>
-            </div>
+        {/* Telegram Section */}
+        <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
+          <CardHeader className="bg-black text-white p-4">
+            <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
+              <MessageSquareText className="h-5 w-5" /> Telegram Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-8">
+            <form onSubmit={handleSaveTelegram} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase">Telegram Chat ID</Label>
+                <Input 
+                  name="chatId" 
+                  defaultValue={telegramSettings?.chatId || ""} 
+                  placeholder="-100xxxxxxxxx" 
+                  required 
+                  className="border-2 border-black rounded-none h-12 font-bold"
+                />
+                <p className="text-[9px] font-bold text-muted-foreground uppercase">Provide your group or individual Chat ID to receive dispatch alerts.</p>
+              </div>
+              <Button type="submit" disabled={isSaving} className="w-full h-12 bg-black text-white font-black uppercase rounded-none border-2 border-black">
+                {isSaving ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> Update Notification Bridge</>}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
@@ -114,14 +147,8 @@ export default function SettingsPage() {
             <CardTitle className="text-xs font-black uppercase opacity-60">System Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between text-[10px] font-black uppercase">
-              <span>Environment</span>
-              <span className="text-black">Production / Prototype</span>
-            </div>
-            <div className="flex justify-between text-[10px] font-black uppercase">
-              <span>Database Status</span>
-              <span className="text-green-600">Online / Connected</span>
-            </div>
+            <div className="flex justify-between text-[10px] font-black uppercase"><span>Environment</span><span className="text-black">Production / Prototype</span></div>
+            <div className="flex justify-between text-[10px] font-black uppercase"><span>Database Status</span><span className="text-green-600">Online / Connected</span></div>
           </CardContent>
         </Card>
       </div>

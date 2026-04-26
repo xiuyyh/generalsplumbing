@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { collection, doc, writeBatch, serverTimestamp, orderBy, query } from "firebase/firestore"
 import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin, History, AlertTriangle } from "lucide-react"
+import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin, History, AlertTriangle, BellRing } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -43,6 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
@@ -60,6 +61,13 @@ export default function DispatchPage() {
       router.push("/auth")
     }
   }, [user, isUserLoading, router])
+
+  // Fetch Telegram Settings
+  const settingsRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "appSettings", "telegram")
+  }, [firestore])
+  const { data: telegramSettings } = useDoc(settingsRef)
 
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -112,8 +120,13 @@ export default function DispatchPage() {
     const deliveryAddress = formData.get("deliveryAddress") as string
     const notes = formData.get("notes") as string
 
+    const assignedStaff = staffMembers?.find(s => s.id === assignedToStaffMemberId);
+    const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "Unknown";
+
     try {
       const batch = writeBatch(firestore)
+      const dispatchDataForNotification: any[] = []
+
       for (const item of items) {
         if (!item.inventoryItemId) continue
         const dispatchRef = doc(collection(firestore, "inventoryDispatches"))
@@ -136,10 +149,31 @@ export default function DispatchPage() {
           batch.update(itemRef, {
             currentStock: (inventoryItem.currentStock || 0) - Number(item.quantity)
           })
+          dispatchDataForNotification.push({
+            itemName: inventoryItem.name,
+            quantity: Number(item.quantity),
+            unit: inventoryItem.unitOfMeasure
+          })
         }
       }
+      
       await batch.commit()
       toast({ title: "Dispatch Recorded", description: "Inventory updated." })
+      
+      // Send Telegram Notifications
+      if (telegramSettings?.chatId) {
+        for (const data of dispatchDataForNotification) {
+          notifyDispatch({
+            ...data,
+            assignedTo: staffName,
+            purpose,
+            address: deliveryAddress,
+            notes,
+            chatId: telegramSettings.chatId
+          }).catch(err => console.error("Notification Flow Error:", err));
+        }
+      }
+
       setItems([{ id: Date.now(), inventoryItemId: "", quantity: 1 }])
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to record dispatch." })
@@ -152,9 +186,17 @@ export default function DispatchPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      <div>
-        <h1 className="text-4xl font-black uppercase tracking-tighter">Inventory Dispatch</h1>
-        <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Administrative Material Outflow Log</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Inventory Dispatch</h1>
+          <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Administrative Material Outflow Log</p>
+        </div>
+        {telegramSettings?.chatId && (
+          <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1 border-2 border-green-200">
+            <BellRing className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase">Telegram Alerts Active</span>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">

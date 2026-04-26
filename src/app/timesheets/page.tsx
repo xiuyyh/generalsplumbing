@@ -1,5 +1,7 @@
+
 "use client"
 
+import { useState } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy } from "firebase/firestore"
 import { 
@@ -18,20 +20,32 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { FileDown, Calendar as CalendarIcon, Filter, ArrowRight, Loader2 } from "lucide-react"
+import { 
+  FileDown, 
+  Calendar as CalendarIcon, 
+  Filter, 
+  ArrowRight, 
+  Loader2,
+  Clock,
+  User,
+  Activity,
+  CalendarDays
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import Link from "next/link"
 
 export default function TimesheetsPage() {
   const { user } = useUser()
   const firestore = useFirestore()
+  const [selectedEntry, setSelectedEntry] = useState<any>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -49,6 +63,12 @@ export default function TimesheetsPage() {
     if (!end) return "Active"
     const diff = new Date(end).getTime() - new Date(start).getTime()
     return (diff / (1000 * 60 * 60)).toFixed(2) + "h"
+  }
+
+  const handleRowClick = (entry: any) => {
+    const staff = staffMembers?.find(s => s.id === entry.staffMemberId)
+    setSelectedEntry({ ...entry, staffName: staff ? `${staff.firstName} ${staff.lastName}` : "Unknown" })
+    setIsDetailsOpen(true)
   }
 
   return (
@@ -74,10 +94,10 @@ export default function TimesheetsPage() {
                 <TableRow className="hover:bg-black">
                   <TableHead className="text-white font-black uppercase text-[10px]">Staff Name</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px]">Date</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Clock In</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Clock Out</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Clock In</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Clock Out</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px]">Duration</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Status</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -91,17 +111,23 @@ export default function TimesheetsPage() {
                   timeEntries?.map((entry) => {
                     const staff = staffMembers?.find(s => s.id === entry.staffMemberId)
                     return (
-                      <TableRow key={entry.id} className="border-b border-black/10 hover:bg-muted/30 transition-colors">
+                      <TableRow 
+                        key={entry.id} 
+                        className="border-b border-black/10 hover:bg-muted/30 transition-colors cursor-pointer group"
+                        onClick={() => handleRowClick(entry)}
+                      >
                         <TableCell className="font-black text-xs uppercase">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
                         <TableCell className="text-xs font-bold uppercase">{new Date(entry.clockInTime).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-xs font-mono font-bold uppercase">{new Date(entry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                        <TableCell className="text-xs font-mono font-bold uppercase">
+                        <TableCell className="text-xs font-mono font-bold uppercase hidden md:table-cell">
+                          {new Date(entry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono font-bold uppercase hidden md:table-cell">
                           {entry.clockOutTime ? new Date(entry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                         </TableCell>
                         <TableCell className="font-mono text-xs font-black">
                           {calculateHours(entry.clockInTime, entry.clockOutTime)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {entry.clockOutTime ? (
                             <Badge variant="outline" className="text-black border-2 border-black bg-white rounded-none text-[8px] px-1 py-0 font-black">LOCKED</Badge>
                           ) : (
@@ -158,6 +184,82 @@ export default function TimesheetsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="border-4 border-black rounded-none max-w-sm sm:max-w-md">
+          <DialogHeader className="border-b-2 border-black pb-4">
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Shift Summary</DialogTitle>
+            <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
+              Full record for session {selectedEntry?.id.slice(-6)}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEntry && (
+            <div className="py-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                    <User className="h-3 w-3" /> Technician
+                  </p>
+                  <p className="font-black text-sm uppercase">{selectedEntry.staffName}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Date
+                  </p>
+                  <p className="font-black text-sm uppercase">{new Date(selectedEntry.clockInTime).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 p-4 border-2 border-black bg-muted/20">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground">Clock In</p>
+                  <p className="font-black text-lg tabular-nums">
+                    {new Date(selectedEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground">Clock Out</p>
+                  <p className="font-black text-lg tabular-nums">
+                    {selectedEntry.clockOutTime 
+                      ? new Date(selectedEntry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : "--:--"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t-2 border-black pt-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Total Duration
+                  </p>
+                  <p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1 justify-end">
+                    <Activity className="h-3 w-3" /> Status
+                  </p>
+                  {selectedEntry.clockOutTime ? (
+                    <Badge className="bg-black text-white rounded-none font-black uppercase text-[10px]">Session Locked</Badge>
+                  ) : (
+                    <Badge variant="destructive" className="rounded-none font-black uppercase text-[10px] animate-pulse">In Progress</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="mt-4">
+            <Button 
+              onClick={() => setIsDetailsOpen(false)}
+              className="w-full bg-black text-white font-black h-12 rounded-none uppercase text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-0.5 active:translate-y-0.5 transition-all"
+            >
+              CLOSE RECORDS
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

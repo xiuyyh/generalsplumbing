@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc } from "firebase/firestore"
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
   Card, 
@@ -30,14 +30,15 @@ import {
   MoreHorizontal,
   Edit2,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  Trash2,
+  AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -50,6 +51,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
@@ -61,7 +72,9 @@ export default function InventoryPage() {
   
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [restockAmount, setRestockAmount] = useState<number>(0)
 
@@ -107,6 +120,31 @@ export default function InventoryPage() {
     setIsAddDialogOpen(false)
   }
 
+  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!firestore || !selectedItem) return
+
+    const formData = new FormData(e.currentTarget)
+    const updatedData = {
+      name: formData.get("name") as string,
+      sku: formData.get("sku") as string,
+      unitOfMeasure: formData.get("unitOfMeasure") as string,
+      reorderThreshold: Number(formData.get("reorderThreshold")),
+      description: formData.get("description") as string,
+      pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
+    }
+
+    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
+    updateDocumentNonBlocking(itemRef, updatedData)
+    
+    toast({
+      title: "Item Updated",
+      description: `${updatedData.name} record saved.`,
+    })
+    setIsEditDialogOpen(false)
+    setSelectedItem(null)
+  }
+
   const handleRestock = () => {
     if (!firestore || !selectedItem || restockAmount <= 0) return
 
@@ -123,6 +161,21 @@ export default function InventoryPage() {
     })
     setIsRestockDialogOpen(false)
     setRestockAmount(0)
+    setSelectedItem(null)
+  }
+
+  const handleDelete = () => {
+    if (!firestore || !selectedItem) return
+
+    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
+    deleteDocumentNonBlocking(itemRef)
+    
+    toast({
+      variant: "destructive",
+      title: "Item Deleted",
+      description: `${selectedItem.name} removed from catalog.`,
+    })
+    setIsDeleteDialogOpen(false)
     setSelectedItem(null)
   }
 
@@ -254,7 +307,13 @@ export default function InventoryPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-none border-2 border-black bg-white p-1">
-                          <DropdownMenuItem className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer">
+                          <DropdownMenuItem 
+                            className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer"
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setIsEditDialogOpen(true)
+                            }}
+                          >
                             <Edit2 className="mr-2 h-3 w-3" /> Edit Item
                           </DropdownMenuItem>
                           <DropdownMenuItem 
@@ -265,6 +324,16 @@ export default function InventoryPage() {
                             }}
                           >
                             <TrendingUp className="mr-2 h-3 w-3" /> Re-stock
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-black/10" />
+                          <DropdownMenuItem 
+                            className="text-xs font-black uppercase text-destructive focus:bg-destructive focus:text-white cursor-pointer"
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setIsDeleteDialogOpen(true)
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-3 w-3" /> Delete Item
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -282,6 +351,49 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="border-4 border-black rounded-none sm:max-w-[500px]">
+          <form onSubmit={handleUpdateItem}>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase">Edit Inventory Item</DialogTitle>
+              <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
+                Update records for: {selectedItem?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name" className="text-xs font-black uppercase">Item Name</Label>
+                <Input id="edit-name" name="name" defaultValue={selectedItem?.name} required className="border-2 border-black rounded-none h-10 font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-sku" className="text-xs font-black uppercase">SKU / Part #</Label>
+                  <Input id="edit-sku" name="sku" defaultValue={selectedItem?.sku} required className="border-2 border-black rounded-none h-10 font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unitOfMeasure" className="text-xs font-black uppercase">Unit (e.g. ft, pcs)</Label>
+                  <Input id="edit-unitOfMeasure" name="unitOfMeasure" defaultValue={selectedItem?.unitOfMeasure} required className="border-2 border-black rounded-none h-10 font-bold" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
+                <Input id="edit-reorderThreshold" name="reorderThreshold" type="number" defaultValue={selectedItem?.reorderThreshold} required className="border-2 border-black rounded-none h-10 font-bold" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description" className="text-xs font-black uppercase">Description</Label>
+                <Textarea id="edit-description" name="description" defaultValue={selectedItem?.description} required className="border-2 border-black rounded-none font-bold" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="w-full bg-black text-white font-black h-12 rounded-none text-sm uppercase border-2 border-black">
+                SAVE CHANGES
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Restock Dialog */}
       <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
@@ -319,6 +431,29 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="border-4 border-black rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-black uppercase flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE RECORD
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-bold text-black uppercase text-xs">
+              Are you sure you want to delete <span className="underline">{selectedItem?.name}</span>? This action is permanent and will remove the item from all inventory tracking.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-2 border-black rounded-none font-black uppercase text-xs">ABORT</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-destructive/90"
+            >
+              CONFIRM DELETE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -11,7 +11,6 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription 
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -27,22 +26,11 @@ import {
 import { 
   Dialog, 
   DialogContent, 
-  DialogDescription, 
   DialogFooter, 
   DialogHeader, 
   DialogTitle, 
   DialogTrigger 
 } from "@/components/ui/dialog"
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UserPlus, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2, AlertTriangle } from "lucide-react"
+import { UserPlus, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useDoc } from "@/firebase/firestore/use-doc"
 
@@ -60,7 +48,6 @@ export default function StaffPage() {
   const router = useRouter()
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<any>(null)
 
   useEffect(() => {
@@ -119,23 +106,20 @@ export default function StaffPage() {
     const staffId = selectedStaff.id
     setIsEditDialogOpen(false)
 
-    setTimeout(() => {
-      updateDocumentNonBlocking(doc(firestore, "staffMembers", staffId), updatedData)
-      toast({ title: "Staff Updated", description: "Record modified successfully." })
-      setSelectedStaff(null)
-    }, 300)
+    updateDocumentNonBlocking(doc(firestore, "staffMembers", staffId), updatedData)
+    toast({ title: "Staff Updated", description: "Record modified successfully." })
+    setSelectedStaff(null)
   }
 
-  const handleDeleteStaff = () => {
-    if (!firestore || !selectedStaff) return
-    const staffId = selectedStaff.id
-    setIsDeleteDialogOpen(false)
-
-    setTimeout(() => {
-      deleteDocumentNonBlocking(doc(firestore, "staffMembers", staffId))
+  const handleDeleteStaff = (staff: any) => {
+    if (!firestore) return
+    
+    const confirmed = window.confirm(`TERMINATE STAFF: Are you sure you want to permanently remove "${staff.firstName} ${staff.lastName}"? All active shifts for this technician will be affected.`)
+    
+    if (confirmed) {
+      deleteDocumentNonBlocking(doc(firestore, "staffMembers", staff.id))
       toast({ variant: "destructive", title: "Record Deleted", description: "Staff member removed from system." })
-      setSelectedStaff(null)
-    }, 300)
+    }
   }
 
   if (isAuthLoading || !user) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -203,7 +187,7 @@ export default function StaffPage() {
                       <DropdownMenuContent align="end" className="rounded-none border-2 border-black p-1">
                         <DropdownMenuItem onClick={() => { setSelectedStaff(staff); setIsEditDialogOpen(true); }} className="font-black uppercase text-[10px] focus:bg-black focus:text-white"><Edit2 className="h-3 w-3 mr-2" /> Edit</DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-black/10" />
-                        <DropdownMenuItem onClick={() => { setSelectedStaff(staff); setIsDeleteDialogOpen(true); }} className="font-black uppercase text-[10px] text-destructive focus:bg-destructive focus:text-white"><Trash2 className="h-3 w-3 mr-2" /> Terminate</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteStaff(staff)} className="font-black uppercase text-[10px] text-destructive focus:bg-destructive focus:text-white"><Trash2 className="h-3 w-3 mr-2" /> Terminate</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -217,7 +201,7 @@ export default function StaffPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setIsEditDialogOpen(false)
-          setTimeout(() => setSelectedStaff(null), 300)
+          setSelectedStaff(null)
         } else {
           setIsEditDialogOpen(true)
         }
@@ -239,36 +223,6 @@ export default function StaffPage() {
           </form>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsDeleteDialogOpen(false)
-          setTimeout(() => setSelectedStaff(null), 300)
-        } else {
-          setIsDeleteDialogOpen(true)
-        }
-      }}>
-        <AlertDialogContent className="border-4 border-black rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> Confirm Termination</AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">
-              Are you sure you want to remove <span className="underline">{selectedStaff?.firstName || "this worker"} {selectedStaff?.lastName || ""}</span> from the active staff registry? This action is permanent.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={(e) => {
-                e.preventDefault()
-                handleDeleteStaff()
-              }}
-              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
-            >
-              TERMINATE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

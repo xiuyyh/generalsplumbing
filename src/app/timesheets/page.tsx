@@ -29,8 +29,7 @@ import {
   User,
   Activity,
   CalendarDays,
-  Trash2,
-  AlertTriangle
+  Trash2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -38,18 +37,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 
@@ -58,7 +46,6 @@ export default function TimesheetsPage() {
   const firestore = useFirestore()
   const [selectedEntry, setSelectedEntry] = useState<any>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -84,18 +71,17 @@ export default function TimesheetsPage() {
     setIsDetailsOpen(true)
   }
 
-  const handleDeleteEntry = () => {
-    if (!firestore || !selectedEntry) return
+  const handleDeleteEntry = (entry: any) => {
+    if (!firestore) return
     
-    const targetId = selectedEntry.id;
-    setIsDeleteDialogOpen(false)
-    setIsDetailsOpen(false)
-
-    setTimeout(() => {
-      deleteDocumentNonBlocking(doc(firestore, "timeEntries", targetId))
+    const confirmed = window.confirm(`TERMINATE LOG: Are you sure you want to permanently remove this time record? This will affect payroll auditing.`)
+    
+    if (confirmed) {
+      deleteDocumentNonBlocking(doc(firestore, "timeEntries", entry.id))
       toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
+      setIsDetailsOpen(false)
       setSelectedEntry(null)
-    }, 300)
+    }
   }
 
   return (
@@ -174,7 +160,7 @@ export default function TimesheetsPage() {
       <Dialog open={isDetailsOpen} onOpenChange={(open) => {
         if (!open) {
           setIsDetailsOpen(false)
-          setTimeout(() => setSelectedEntry(null), 300)
+          setSelectedEntry(null)
         } else {
           setIsDetailsOpen(true)
         }
@@ -196,40 +182,13 @@ export default function TimesheetsPage() {
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t-2 border-black">
                   <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>
-                  <Button onClick={() => setIsDeleteDialogOpen(true)} variant="destructive" className="rounded-none border-2 border-black font-black uppercase text-xs px-4 h-12"><Trash2 className="h-4 w-4 mr-2" /> DELETE LOG</Button>
+                  <Button onClick={() => handleDeleteEntry(selectedEntry)} variant="destructive" className="rounded-none border-2 border-black font-black uppercase text-xs px-4 h-12"><Trash2 className="h-4 w-4 mr-2" /> DELETE LOG</Button>
                 </div>
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsDeleteDialogOpen(false)
-        } else {
-          setIsDeleteDialogOpen(true)
-        }
-      }}>
-        <AlertDialogContent className="border-4 border-black rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> Confirm Deletion</AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">Are you sure you want to permanently remove this time record? This will affect payroll auditing.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={(e) => {
-                e.preventDefault()
-                handleDeleteEntry()
-              }} 
-              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
-            >
-              DELETE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

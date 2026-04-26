@@ -32,8 +32,7 @@ import {
   Edit2,
   Loader2,
   TrendingUp,
-  Trash2,
-  AlertTriangle
+  Trash2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -52,16 +51,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
@@ -75,7 +64,6 @@ export default function InventoryPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [restockAmount, setRestockAmount] = useState<number>(0)
 
@@ -135,14 +123,12 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     setIsEditDialogOpen(false)
     
-    setTimeout(() => {
-      updateDocumentNonBlocking(itemRef, updatedData)
-      toast({
-        title: "Item Updated",
-        description: `${updatedData.name} record saved.`,
-      })
-      setSelectedItem(null)
-    }, 300)
+    updateDocumentNonBlocking(itemRef, updatedData)
+    toast({
+      title: "Item Updated",
+      description: `${updatedData.name} record saved.`,
+    })
+    setSelectedItem(null)
   }
 
   const handleRestock = () => {
@@ -153,36 +139,30 @@ export default function InventoryPage() {
     
     setIsRestockDialogOpen(false)
 
-    setTimeout(() => {
-      updateDocumentNonBlocking(itemRef, {
-        currentStock: newStock
-      })
-      toast({
-        title: "Stock Updated",
-        description: `Added ${restockAmount} to ${selectedItem.name}.`,
-      })
-      setRestockAmount(0)
-      setSelectedItem(null)
-    }, 300)
+    updateDocumentNonBlocking(itemRef, {
+      currentStock: newStock
+    })
+    toast({
+      title: "Stock Updated",
+      description: `Added ${restockAmount} to ${selectedItem.name}.`,
+    })
+    setRestockAmount(0)
+    setSelectedItem(null)
   }
 
-  const handleDelete = () => {
-    if (!firestore || !selectedItem) return
+  const handleDelete = (item: any) => {
+    if (!firestore) return
 
-    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
-    const itemName = selectedItem.name
+    const confirmed = window.confirm(`TERMINATE RECORD: Are you sure you want to permanently remove "${item.name}"? This action cannot be undone.`)
     
-    setIsDeleteDialogOpen(false)
-
-    setTimeout(() => {
-      deleteDocumentNonBlocking(itemRef)
+    if (confirmed) {
+      deleteDocumentNonBlocking(doc(firestore, "inventoryItems", item.id))
       toast({
         variant: "destructive",
         title: "Item Deleted",
-        description: `${itemName} removed from catalog.`,
+        description: `${item.name} removed from catalog.`,
       })
-      setSelectedItem(null)
-    }, 300)
+    }
   }
 
   if (isUserLoading || !user) {
@@ -328,10 +308,7 @@ export default function InventoryPage() {
                           <DropdownMenuSeparator className="bg-black/10" />
                           <DropdownMenuItem 
                             className="text-xs font-black uppercase text-destructive focus:bg-destructive focus:text-white cursor-pointer"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setIsDeleteDialogOpen(true)
-                            }}
+                            onClick={() => handleDelete(item)}
                           >
                             <Trash2 className="mr-2 h-3 w-3" /> Delete Item
                           </DropdownMenuItem>
@@ -355,7 +332,7 @@ export default function InventoryPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setIsEditDialogOpen(false)
-          setTimeout(() => setSelectedItem(null), 300)
+          setSelectedItem(null)
         } else {
           setIsEditDialogOpen(true)
         }
@@ -398,7 +375,7 @@ export default function InventoryPage() {
       <Dialog open={isRestockDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setIsRestockDialogOpen(false)
-          setTimeout(() => setSelectedItem(null), 300)
+          setSelectedItem(null)
         } else {
           setIsRestockDialogOpen(true)
         }
@@ -437,38 +414,6 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsDeleteDialogOpen(false)
-          setTimeout(() => setSelectedItem(null), 300)
-        } else {
-          setIsDeleteDialogOpen(true)
-        }
-      }}>
-        <AlertDialogContent className="border-4 border-black rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-black uppercase flex items-center gap-2">
-              <AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE RECORD
-            </AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-xs">
-              Are you sure you want to delete <span className="underline">{selectedItem?.name || "this item"}</span>? This action is permanent and will remove the item from all inventory tracking.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-black rounded-none font-black uppercase text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
-              className="bg-destructive text-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-destructive/90"
-            >
-              CONFIRM DELETE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

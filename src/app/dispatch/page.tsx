@@ -11,8 +11,6 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription,
-  CardFooter
 } from "@/components/ui/card"
 import { 
   Table, 
@@ -32,18 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin, History, AlertTriangle, BellRing } from "lucide-react"
+import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 
 export default function DispatchPage() {
@@ -51,8 +39,6 @@ export default function DispatchPage() {
   const firestore = useFirestore()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedDispatch, setSelectedDispatch] = useState<any>(null)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [items, setItems] = useState([
     { id: Date.now(), inventoryItemId: "", quantity: 1 }
   ])
@@ -101,17 +87,15 @@ export default function DispatchPage() {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
   }
 
-  const handleDeleteDispatch = () => {
-    if (!firestore || !selectedDispatch) return
+  const handleDeleteDispatch = (dispatch: any) => {
+    if (!firestore) return
     
-    const targetId = selectedDispatch.id;
-    setIsDeleteDialogOpen(false)
-
-    setTimeout(() => {
-      deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", targetId))
+    const confirmed = window.confirm(`TERMINATE LOG: Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.`)
+    
+    if (confirmed) {
+      deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", dispatch.id))
       toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
-      setSelectedDispatch(null)
-    }, 300)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -274,7 +258,7 @@ export default function DispatchPage() {
                         <TableCell className="font-bold uppercase text-[10px]">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
                         <TableCell className="hidden md:table-cell text-[10px] font-bold uppercase"><MapPin className="h-3 w-3 inline mr-1" />{dispatch.deliveryAddress || "Not set"}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="icon" variant="ghost" onClick={() => { setSelectedDispatch(dispatch); setIsDeleteDialogOpen(true); }} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleDeleteDispatch(dispatch)} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -285,36 +269,6 @@ export default function DispatchPage() {
           </CardContent>
         </Card>
       </div>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsDeleteDialogOpen(false)
-          setTimeout(() => setSelectedDispatch(null), 300)
-        } else {
-          setIsDeleteDialogOpen(true)
-        }
-      }}>
-        <AlertDialogContent className="border-4 border-black rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE LOG</AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">
-              Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={(e) => {
-                e.preventDefault()
-                handleDeleteDispatch()
-              }}
-              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
-            >
-              CONFIRM DELETE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

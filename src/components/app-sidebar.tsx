@@ -87,16 +87,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-4 border-black">
-      <SidebarHeader className="h-16 flex items-center px-4 border-b-4 border-black bg-black text-white shrink-0 overflow-hidden transition-all">
-        <div className="flex items-center gap-3 font-black text-xl uppercase tracking-tighter whitespace-nowrap">
-          <div className="h-6 w-6 bg-white shrink-0" />
+      <SidebarHeader className="h-12 flex items-center px-3 border-b-4 border-black bg-black text-white shrink-0 overflow-hidden transition-all">
+        <div className="flex items-center gap-3 font-black text-lg uppercase tracking-tighter whitespace-nowrap">
+          <div className="h-5 w-5 bg-white shrink-0" />
           <span className="group-data-[collapsible=icon]:hidden">Generals Plumbing</span>
         </div>
       </SidebarHeader>
       
       <SidebarContent className="bg-white">
-        <SidebarGroup>
-          <SidebarGroupLabel className="font-black uppercase text-[10px] tracking-widest text-muted-foreground mb-2 px-4 group-data-[collapsible=icon]:hidden">
+        <SidebarGroup className="p-1">
+          <SidebarGroupLabel className="font-black uppercase text-[9px] tracking-widest text-muted-foreground mb-1 px-3 group-data-[collapsible=icon]:hidden">
             Operations
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -107,10 +107,10 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === item.url}
                     tooltip={item.title}
-                    className="h-14 px-4 rounded-none font-black uppercase text-xs tracking-wider data-[active=true]:bg-black data-[active=true]:text-white transition-all hover:bg-muted/80"
+                    className="h-10 px-3 rounded-none font-black uppercase text-[11px] tracking-wider data-[active=true]:bg-black data-[active=true]:text-white transition-all hover:bg-muted/80"
                   >
                     <Link href={item.url}>
-                      <item.icon className="h-6 w-6 shrink-0" />
+                      <item.icon className="h-5 w-5 shrink-0" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -121,15 +121,15 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 bg-white border-t-4 border-black shrink-0">
+      <SidebarFooter className="p-3 bg-white border-t-4 border-black shrink-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}
               tooltip="Terminate Session"
-              className="w-full h-14 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="w-full h-10 flex items-center justify-start gap-3 px-3 font-black uppercase text-[11px] tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
-              <LogOut className="h-6 w-6 shrink-0" />
+              <LogOut className="h-5 w-5 shrink-0" />
               <span className="group-data-[collapsible=icon]:hidden">Terminate Session</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

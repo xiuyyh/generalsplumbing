@@ -16,11 +16,11 @@ export function NavHeader() {
   if (!user || pathname === "/auth") return null;
 
   return (
-    <header className="flex h-16 items-center border-b-4 border-black px-4 bg-white shrink-0 sticky top-0 z-30">
-      <SidebarTrigger className="-ml-1 mr-4 border-4 border-black rounded-none h-10 w-10 bg-white hover:bg-black hover:text-white transition-colors" />
+    <header className="flex h-12 items-center border-b-4 border-black px-3 bg-white shrink-0 sticky top-0 z-30">
+      <SidebarTrigger className="-ml-1 mr-3 border-4 border-black rounded-none h-8 w-8 bg-white hover:bg-black hover:text-white transition-colors" />
       <div className="flex items-center gap-2">
-        <div className="h-6 w-6 bg-black" />
-        <h1 className="text-xl font-black uppercase tracking-tighter">System Terminal</h1>
+        <div className="h-4 w-4 bg-black" />
+        <h1 className="text-lg font-black uppercase tracking-tighter">System Terminal</h1>
       </div>
     </header>
   );

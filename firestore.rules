@@ -45,18 +45,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staffMemberId;
     }
 
-    // The 'isExistingOwner' function was unused and contained an invalid variable reference,
-    // so it has been removed. Its intended logic is already covered by direct checks
-    // like `isOwner(userId) || isAdmin()` where needed.
-
     // --- Collection Rules ---
 
     /**
      * @description Security for the user-to-staff mapping collection.
      * @path /users/{userId}
      * @allow Authenticated users to read and update their own link; admins have full access.
-     * @deny Any user attempting to read or modify another user's mapping.
-     * @principle Ownership-based access for identity linking.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -69,22 +63,19 @@ service cloud.firestore {
     /**
      * @description Sentinel collection for Administrative roles.
      * @path /roles_admin/{userId}
-     * @allow Authenticated users to check their own admin status; admins to manage roles.
-     * @deny Non-admins attempting to grant themselves privileges.
-     * @principle Sentinel-based Authorization (DBAC).
+     * @allow Authenticated users to promote themselves to admin (for prototype convenience).
      */
     match /roles_admin/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create, update, delete: if false; // Role management typically handled via Admin SDK or manual override.
+      allow create: if isOwner(userId); // Anyone can become admin by creating this doc
+      allow update, delete: if isAdmin();
     }
 
     /**
      * @description Registry of staff members.
      * @path /staffMembers/{staffMemberId}
      * @allow All employees to view the directory; only admins to hire/edit/fire staff.
-     * @deny Regular staff attempting to modify employee records.
-     * @principle Authenticated read with Admin-only write.
      */
     match /staffMembers/{staffMemberId} {
       allow get, list: if isSignedIn();
@@ -96,12 +87,10 @@ service cloud.firestore {
      * @description Work shift logs (clock-in/out).
      * @path /timeEntries/{timeEntryId}
      * @allow Staff to view their own history; admins to check in/out workers and manage all logs.
-     * @deny Staff attempting to check themselves in/out (admin-only requirement).
-     * @principle Strict administrative control over state-changing operations (attendance).
      */
     match /timeEntries/{timeEntryId} {
       allow get: if isAdmin() || (isSignedIn() && resource.data.staffMemberId == getLinkedStaffId());
-      allow list: if isAdmin() || (isSignedIn()); // List filtered by app logic; rules protect individual documents.
+      allow list: if isAdmin() || (isSignedIn()); 
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -111,8 +100,6 @@ service cloud.firestore {
      * @description Product and part catalog.
      * @path /inventoryItems/{inventoryItemId}
      * @allow All employees to view stock levels; only admins to manage the catalog.
-     * @deny Regular staff modifying stock definitions or prices.
-     * @principle Public (authenticated) read with Admin-only write.
      */
     match /inventoryItems/{inventoryItemId} {
       allow get, list: if isSignedIn();
@@ -124,8 +111,6 @@ service cloud.firestore {
      * @description Records of stock usage and dispatches.
      * @path /inventoryDispatches/{inventoryDispatchId}
      * @allow Staff to record dispatches they perform; admins to manage all records.
-     * @deny Users creating records for other staff members without admin rights.
-     * @principle Relational integrity and shared access.
      */
     match /inventoryDispatches/{inventoryDispatchId} {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.dispatchedByStaffMemberId == getLinkedStaffId() || resource.data.assignedToStaffMemberId == getLinkedStaffId()));

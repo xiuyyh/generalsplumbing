@@ -1,9 +1,10 @@
-
 "use client"
 
-import { useState } from "react"
-import { useAuth, useUser } from "@/firebase"
+import { useState, useEffect } from "react"
+import { useAuth, useUser, useFirestore } from "@/firebase"
 import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { doc } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -19,35 +20,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LogIn, UserPlus, ShieldCheck, Loader2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 
 export default function AuthPage() {
   const { user, isUserLoading } = useUser()
   const auth = useAuth()
+  const firestore = useFirestore()
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Redirect if already logged in
+  // Redirect and auto-promote to admin if logged in
   useEffect(() => {
-    if (user && !isUserLoading) {
+    if (user && firestore && !isUserLoading) {
+      // Auto-promote user to admin as per requirement: "anyone can signup and become admin"
+      const adminRef = doc(firestore, "roles_admin", user.uid)
+      setDocumentNonBlocking(adminRef, { 
+        assignedAt: new Date().toISOString(),
+        email: user.email 
+      }, { merge: true })
+      
       router.push("/")
     }
-  }, [user, isUserLoading, router])
+  }, [user, firestore, isUserLoading, router])
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
     initiateEmailSignIn(auth, email, password)
-    // Non-blocking, the useUser hook will update the UI
   }
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
     initiateEmailSignUp(auth, email, password)
-    // Non-blocking
   }
 
   if (isUserLoading) {
@@ -143,10 +149,10 @@ export default function AuthPage() {
                   disabled={isProcessing}
                   className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase"
                 >
-                  {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Create Admin</>}
+                  {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Register Admin</>}
                 </Button>
                 <p className="text-[10px] text-center font-black uppercase text-muted-foreground mt-4 leading-tight">
-                  Note: Account creation requires manual verification by existing senior staff before admin roles are granted.
+                  Signing up grants immediate administrative access to all system management modules.
                 </p>
               </form>
             </TabsContent>

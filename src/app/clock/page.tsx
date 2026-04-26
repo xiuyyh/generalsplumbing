@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, doc, query, where, getDocs, limit, orderBy } from "firebase/firestore"
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
   CardContent, 
@@ -10,129 +13,202 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Play, Square, Coffee, User } from "lucide-react"
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Clock, Play, Square, User, Loader2, ShieldAlert } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { useDoc } from "@/firebase/firestore/use-doc"
 
 export default function ClockPage() {
-  const [isClockedIn, setIsClockedIn] = useState(false)
-  const [startTime, setStartTime] = useState<Date | null>(null)
+  const { user } = useUser()
+  const firestore = useFirestore()
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("")
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [elapsedTime, setElapsedTime] = useState("00:00:00")
+  const [activeEntry, setActiveEntry] = useState<any>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  // Admin check
+  const adminRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "roles_admin", user.uid)
+  }, [firestore, user])
+  const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
+
+  // Staff list for selection
+  const staffQuery = useMemoFirebase(() => {
+    if (!firestore) return null
+    return collection(firestore, "staffMembers")
+  }, [firestore])
+  const { data: staffMembers, isLoading: isStaffLoading } = useCollection(staffQuery)
 
   useEffect(() => {
-    // Initialize time only on the client to avoid hydration mismatch
     setCurrentTime(new Date())
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
+  // Check for active clock-in for selected staff
   useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (isClockedIn && startTime) {
-      timer = setInterval(() => {
-        const diff = new Date().getTime() - startTime.getTime()
-        const hours = Math.floor(diff / 3600000)
-        const minutes = Math.floor((diff % 3600000) / 60000)
-        const seconds = Math.floor((diff % 60000) / 1000)
-        setElapsedTime(
-          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-        )
-      }, 1000)
+    async function checkActiveEntry() {
+      if (!firestore || !selectedStaffId) {
+        setActiveEntry(null)
+        return
+      }
+
+      const q = query(
+        collection(firestore, "timeEntries"),
+        where("staffMemberId", "==", selectedStaffId),
+        where("clockOutTime", "==", null),
+        limit(1)
+      )
+
+      const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        setActiveEntry({ ...querySnapshot.docs[0].data(), id: querySnapshot.docs[0].id })
+      } else {
+        setActiveEntry(null)
+      }
     }
-    return () => clearInterval(timer)
-  }, [isClockedIn, startTime])
+
+    checkActiveEntry()
+  }, [selectedStaffId, firestore])
 
   const handleClockToggle = () => {
-    if (!isClockedIn) {
-      const now = new Date()
-      setStartTime(now)
-      setIsClockedIn(true)
+    if (!firestore || !selectedStaffId || isProcessing) return
+    setIsProcessing(true)
+
+    const now = new Date().toISOString()
+    const staff = staffMembers?.find(s => s.id === selectedStaffId)
+
+    if (!activeEntry) {
+      // Clock In
+      const newEntry = {
+        staffMemberId: selectedStaffId,
+        clockInTime: now,
+        clockOutTime: null,
+        notes: "Admin clocked in worker"
+      }
+      addDocumentNonBlocking(collection(firestore, "timeEntries"), newEntry)
       toast({
-        title: "Clocked In",
-        description: `Successfully clocked in at ${now.toLocaleTimeString()}`,
+        title: "Staff Clocked In",
+        description: `${staff?.firstName} is now active.`,
       })
+      // Optimistic update for UI feel (though real state comes from checkActiveEntry effect)
+      setActiveEntry({ ...newEntry, id: 'temp' })
     } else {
-      setIsClockedIn(false)
-      setStartTime(null)
-      setElapsedTime("00:00:00")
-      toast({
-        title: "Clocked Out",
-        description: `Shift completed at ${new Date().toLocaleTimeString()}`,
+      // Clock Out
+      const entryRef = doc(firestore, "timeEntries", activeEntry.id)
+      updateDocumentNonBlocking(entryRef, {
+        clockOutTime: now
       })
+      toast({
+        title: "Staff Clocked Out",
+        description: `${staff?.firstName} shift completed.`,
+      })
+      setActiveEntry(null)
     }
+    
+    setIsProcessing(false)
+  }
+
+  if (isAdminLoading || isStaffLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!adminRole) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-destructive" />
+        <h2 className="text-2xl font-black">Admin Access Required</h2>
+        <p className="text-muted-foreground">Only administrators are authorized to clock workers in or out for shifts.</p>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-headline font-bold">Staff Attendance</h1>
-        <p className="text-muted-foreground mt-2">Manage your daily work hours</p>
+        <h1 className="text-3xl font-headline font-bold">Attendance Manager</h1>
+        <p className="text-muted-foreground mt-2">Manage worker shifts and time tracking</p>
       </div>
 
-      <Card className="border-2 overflow-hidden">
-        <div className={`h-2 ${isClockedIn ? 'bg-accent' : 'bg-muted'}`} />
+      <Card className="border-2 overflow-hidden shadow-2xl">
+        <div className={`h-3 ${activeEntry ? 'bg-black' : 'bg-muted'}`} />
         <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-4">
-            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-10 w-10 text-primary" />
+          <div className="space-y-4">
+            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Worker</Label>
+            <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+              <SelectTrigger className="h-14 text-lg font-bold">
+                <SelectValue placeholder="Choose a technician..." />
+              </SelectTrigger>
+              <SelectContent>
+                {staffMembers?.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.firstName} {staff.lastName} - {staff.officialRole}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {selectedStaffId && (
+            <div className="mt-6 flex justify-center gap-2">
+              {activeEntry ? (
+                <Badge className="bg-black text-white px-4 py-1 text-sm font-black uppercase">On Duty</Badge>
+              ) : (
+                <Badge variant="secondary" className="px-4 py-1 text-sm font-black uppercase">Clocked Out</Badge>
+              )}
             </div>
-          </div>
-          <CardTitle className="text-2xl">Staff Member</CardTitle>
-          <CardDescription>Shift: Standard Operations</CardDescription>
-          <div className="mt-4 flex justify-center gap-2">
-            {isClockedIn ? (
-              <Badge className="bg-accent hover:bg-accent text-white px-4 py-1">Active</Badge>
-            ) : (
-              <Badge variant="secondary" className="px-4 py-1 text-muted-foreground">Offline</Badge>
-            )}
-          </div>
+          )}
         </CardHeader>
 
         <CardContent className="pt-6 space-y-8">
           <div className="text-center space-y-2">
-            <p className="text-4xl md:text-6xl font-headline font-black tabular-nums tracking-tighter text-primary">
+            <p className="text-5xl md:text-7xl font-headline font-black tabular-nums tracking-tighter text-black">
               {currentTime ? currentTime.toLocaleTimeString([], { hour12: true }) : "--:--:--"}
             </p>
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-              {currentTime ? currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : "Loading date..."}
+            <p className="text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">
+              {currentTime ? currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : "Loading..."}
             </p>
           </div>
 
-          {isClockedIn && (
-            <div className="bg-muted/50 p-6 rounded-xl text-center space-y-2 animate-in fade-in zoom-in duration-300">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Shift Duration</p>
-              <p className="text-3xl font-headline font-bold tabular-nums text-accent">{elapsedTime}</p>
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-2">
-                <Clock className="h-3 w-3" />
-                Started at {startTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {!isClockedIn ? (
+          <div className="flex flex-col gap-4">
+            {!activeEntry ? (
               <Button 
                 size="lg" 
-                className="h-16 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform" 
+                disabled={!selectedStaffId || isProcessing}
+                className="h-20 text-xl font-black bg-black text-white shadow-xl hover:scale-[1.02] transition-transform" 
                 onClick={handleClockToggle}
               >
-                <Play className="mr-2 h-5 w-5 fill-current" /> Clock In
+                <Play className="mr-3 h-6 w-6 fill-current" /> START SHIFT
               </Button>
             ) : (
               <Button 
                 size="lg" 
                 variant="destructive" 
-                className="h-16 text-lg font-bold shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform" 
+                disabled={isProcessing}
+                className="h-20 text-xl font-black shadow-xl hover:scale-[1.02] transition-transform" 
                 onClick={handleClockToggle}
               >
-                <Square className="mr-2 h-5 w-5 fill-current" /> Clock Out
+                <Square className="mr-3 h-6 w-6 fill-current" /> END SHIFT
               </Button>
             )}
-            <Button size="lg" variant="secondary" className="h-16 text-lg font-bold">
-              <Coffee className="mr-2 h-5 w-5" /> Take Break
-            </Button>
+            
+            {activeEntry && (
+              <div className="bg-muted p-4 rounded-lg flex items-center justify-center gap-3 text-sm font-bold text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Shift started at {new Date(activeEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

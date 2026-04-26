@@ -8,6 +8,7 @@ import {
   Truck,
   FileText,
   History,
+  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -32,9 +33,14 @@ const menuItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Clock In/Out",
+    title: "Attendance",
     url: "/clock",
     icon: Clock,
+  },
+  {
+    title: "Staff Management",
+    url: "/staff",
+    icon: Users,
   },
   {
     title: "Timesheets",

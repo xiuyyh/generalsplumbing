@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash2, ClipboardList, Send, Loader2 } from "lucide-react"
+import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function DispatchPage() {
@@ -68,28 +67,28 @@ export default function DispatchPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-headline font-bold">New Dispatch Log</h1>
-        <p className="text-muted-foreground">Record materials taken for jobs or assigned to technicians.</p>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">New Dispatch Log</h1>
+        <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">Record material outflow and destination</p>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-primary" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <Card className="lg:col-span-7 border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <CardHeader className="border-b-2 border-black bg-muted/30">
+              <CardTitle className="text-xl font-black uppercase flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
                 Material List
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-6">
               <div className="grid grid-cols-12 gap-4 mb-2">
                 <div className="col-span-7 md:col-span-8">
-                  <Label className="text-xs uppercase text-muted-foreground font-bold">Item Name / ID</Label>
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">1. Item Specification</Label>
                 </div>
                 <div className="col-span-3 md:col-span-2">
-                  <Label className="text-xs uppercase text-muted-foreground font-bold">Qty</Label>
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">2. Qty</Label>
                 </div>
               </div>
               
@@ -97,29 +96,29 @@ export default function DispatchPage() {
                 <div key={row.id} className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-7 md:col-span-8">
                     <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select inventory item..." />
+                      <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
+                        <SelectValue placeholder="Select item..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="c1">Copper Elbow 1/2"</SelectItem>
-                        <SelectItem value="p1">PVC Pipe 1.5" (10ft)</SelectItem>
-                        <SelectItem value="v1">Ball Valve 3/4"</SelectItem>
-                        <SelectItem value="s1">Solder Lead-Free</SelectItem>
+                        <SelectItem value="c1" className="font-bold">Copper Elbow 1/2"</SelectItem>
+                        <SelectItem value="p1" className="font-bold">PVC Pipe 1.5" (10ft)</SelectItem>
+                        <SelectItem value="v1" className="font-bold">Ball Valve 3/4"</SelectItem>
+                        <SelectItem value="s1" className="font-bold">Solder Lead-Free</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-3 md:col-span-2">
-                    <Input type="number" min="1" defaultValue="1" />
+                    <Input type="number" min="1" defaultValue="1" className="h-12 border-2 border-black rounded-none font-black text-center" />
                   </div>
                   <div className="col-span-2 flex justify-end">
                     <Button 
                       type="button" 
                       variant="ghost" 
                       size="icon" 
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:text-white hover:bg-destructive rounded-none border-2 border-transparent hover:border-black transition-all"
                       onClick={() => removeItemRow(row.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
@@ -128,62 +127,71 @@ export default function DispatchPage() {
               <Button 
                 type="button" 
                 variant="outline" 
-                className="w-full mt-2 border-dashed" 
+                className="w-full h-12 mt-2 border-2 border-black border-dashed rounded-none font-black uppercase hover:bg-muted" 
                 onClick={addItemRow}
               >
-                <Plus className="mr-2 h-4 w-4" /> Add Another Item
+                <Plus className="mr-2 h-4 w-4" /> Add Line Item
               </Button>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Assignment</CardTitle>
+          <div className="lg:col-span-5 space-y-8">
+            <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <CardHeader className="border-b-2 border-black bg-muted/30">
+                <CardTitle className="text-xl font-black uppercase">Assignment Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6 pt-6">
                 <div className="space-y-2">
-                  <Label>Technician</Label>
+                  <Label className="font-black uppercase text-xs">Technician</Label>
                   <Select required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select staff..." />
+                    <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
+                      <SelectValue placeholder="Choose personnel..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="t1">John Doe</SelectItem>
-                      <SelectItem value="t2">Sarah Smith</SelectItem>
-                      <SelectItem value="t3">Mike Jones</SelectItem>
+                      <SelectItem value="t1" className="font-bold">John Doe</SelectItem>
+                      <SelectItem value="t2" className="font-bold">Sarah Smith</SelectItem>
+                      <SelectItem value="t3" className="font-bold">Mike Jones</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Job Reference #</Label>
-                  <Input placeholder="e.g. JB-2024-001" />
+                  <Label className="font-black uppercase text-xs">Job Reference #</Label>
+                  <Input placeholder="e.g. JB-2024-001" className="h-12 border-2 border-black rounded-none font-bold" />
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Input placeholder="Optional details..." />
+                  <Label className="font-black uppercase text-xs flex items-center gap-2">
+                    <MapPin className="h-3 w-3" /> Delivery Address
+                  </Label>
+                  <Input 
+                    placeholder="Enter destination address..." 
+                    className="h-12 border-2 border-black rounded-none font-bold bg-muted/10 focus:bg-white" 
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-black uppercase text-xs">Internal Notes</Label>
+                  <Input placeholder="Optional dispatch notes..." className="h-12 border-2 border-black rounded-none font-bold" />
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
-                  <Send className="mr-2 h-4 w-4" /> Record Dispatch
+              <CardFooter className="pt-2">
+                <Button type="submit" className="w-full h-16 bg-black text-white rounded-none font-black text-lg shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] hover:bg-black/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
+                  <Send className="mr-3 h-6 w-6" /> RECORD DISPATCH
                 </Button>
               </CardFooter>
             </Card>
 
-            <Card className="bg-primary text-primary-foreground">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-white/10">
-                    <Truck className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Inventory Sync</h4>
-                    <p className="text-xs text-primary-foreground/70">Stock levels will update automatically on submission.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="p-6 border-2 border-black bg-black text-white rounded-none flex items-center gap-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]">
+              <div className="p-2 bg-white/10 rounded-none border border-white/20">
+                <Truck className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-black uppercase text-sm tracking-tight">Cloud Sync Active</h4>
+                <p className="text-[10px] font-bold uppercase text-white/60">Stock levels update in real-time across all terminals.</p>
+              </div>
+            </div>
           </div>
         </div>
       </form>

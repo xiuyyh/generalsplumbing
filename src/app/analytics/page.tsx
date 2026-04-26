@@ -1,5 +1,7 @@
 "use client"
 
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { collection } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -24,7 +26,8 @@ import {
   TrendingUp, 
   Users, 
   Package, 
-  AlertCircle 
+  AlertCircle,
+  Loader2
 } from "lucide-react"
 import { 
   ChartContainer, 
@@ -33,68 +36,93 @@ import {
   type ChartConfig
 } from "@/components/ui/chart"
 
-const usageData = [
-  { name: "Mon", pvc: 40, copper: 24, valves: 12 },
-  { name: "Tue", pvc: 30, copper: 13, valves: 10 },
-  { name: "Wed", pvc: 20, copper: 98, valves: 8 },
-  { name: "Thu", pvc: 27, copper: 39, valves: 15 },
-  { name: "Fri", pvc: 18, copper: 48, valves: 21 },
-  { name: "Sat", pvc: 23, copper: 38, valves: 5 },
-  { name: "Sun", pvc: 34, copper: 43, valves: 2 },
-]
-
-const topPartsData = [
-  { name: "PVC Fittings", value: 45 },
-  { name: "Copper Pipes", value: 30 },
-  { name: "Valves", value: 15 },
-  { name: "Teflon", value: 10 },
-]
-
-const COLORS = ['#297CB0', '#3C9F8A', '#22C55E', '#A855F7']
+const COLORS = ['#000000', '#444444', '#777777', '#AAAAAA']
 
 const chartConfig = {
-  pvc: {
-    label: "PVC Components",
-    color: "hsl(var(--chart-1))",
-  },
-  copper: {
-    label: "Copper Pipes",
-    color: "hsl(var(--chart-2))",
+  usage: {
+    label: "Inventory Dispatched",
+    color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig
 
 export default function AnalyticsPage() {
+  const { user } = useUser()
+  const firestore = useFirestore()
+
+  const inventoryQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "inventoryItems")
+  }, [firestore, user])
+  const { data: inventoryItems, isLoading: isInvLoading } = useCollection(inventoryQuery)
+
+  const dispatchQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "inventoryDispatches")
+  }, [firestore, user])
+  const { data: dispatches, isLoading: isDispLoading } = useCollection(dispatchQuery)
+
+  const staffQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "staffMembers")
+  }, [firestore, user])
+  const { data: staffMembers } = useCollection(staffQuery)
+
+  // Process data for charts
+  const topPartsData = inventoryItems?.map(item => ({
+    name: item.name,
+    value: dispatches?.filter(d => d.inventoryItemId === item.id).length || 0
+  })).sort((a, b) => b.value - a.value).slice(0, 5).filter(i => i.value > 0) || []
+
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    return d.toISOString().split('T')[0]
+  }).reverse()
+
+  const usageHistory = last7Days.map(date => ({
+    name: new Date(date).toLocaleDateString([], { weekday: 'short' }),
+    usage: dispatches?.filter(d => d.dispatchDateTime.startsWith(date)).length || 0
+  }))
+
+  if (isInvLoading || isDispLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Aggregating System Intelligence...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold">Usage History & Analytics</h1>
-        <p className="text-muted-foreground">Analyze inventory trends and operational efficiency.</p>
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Usage History & Analytics</h1>
+        <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Real-time operational trends from Firestore</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
+        <Card className="lg:col-span-2 border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
+          <CardHeader className="bg-muted/10 border-b-2 border-black">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Daily Material Consumption</CardTitle>
-                <CardDescription>Units used across different material categories this week.</CardDescription>
+                <CardTitle className="text-lg font-black uppercase">Daily Dispatch Frequency</CardTitle>
+                <CardDescription className="text-xs font-bold uppercase opacity-60">Material outflows recorded this week</CardDescription>
               </div>
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-primary" />
+              <div className="p-2 bg-black text-white rounded-none">
+                <TrendingUp className="h-5 w-5" />
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="h-[300px] w-full">
               <ChartContainer config={chartConfig}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={usageData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                  <BarChart data={usageHistory}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5E5" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis tick={{ fontSize: 10, fontWeight: 'bold' }} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="pvc" fill="var(--color-pvc)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="copper" fill="var(--color-copper)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="usage" fill="#000000" radius={[0, 0, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -102,12 +130,12 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory Mix</CardTitle>
-            <CardDescription>Most utilized part categories.</CardDescription>
+        <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
+          <CardHeader className="bg-muted/10 border-b-2 border-black">
+            <CardTitle className="text-lg font-black uppercase">Top Utilized Parts</CardTitle>
+            <CardDescription className="text-xs font-bold uppercase opacity-60">Distribution of inventory demand</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -117,7 +145,7 @@ export default function AnalyticsPage() {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
-                    paddingAngle={5}
+                    paddingAngle={0}
                     dataKey="value"
                   >
                     {topPartsData.map((entry, index) => (
@@ -130,81 +158,57 @@ export default function AnalyticsPage() {
             </div>
             <div className="space-y-2 mt-4">
               {topPartsData.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between text-xs">
+                <div key={item.name} className="flex items-center justify-between text-[10px] font-black uppercase">
                   <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="text-muted-foreground">{item.name}</span>
+                    <div className="h-3 w-3" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                    <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
                   </div>
-                  <span className="font-bold">{item.value}%</span>
+                  <span className="font-black">{item.value} dispatches</span>
                 </div>
               ))}
+              {topPartsData.length === 0 && (
+                <p className="text-center text-[10px] font-black uppercase text-muted-foreground py-10">Insufficient dispatch data.</p>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
+        <Card className="border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" /> Most Efficient Technician
+            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+              <Users className="h-4 w-4" /> Active Workforce
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Sarah Smith</div>
-            <p className="text-xs text-muted-foreground">+12% items correctly logged vs last month</p>
+            <div className="text-2xl font-black">{staffMembers?.length || 0}</div>
+            <p className="text-[9px] font-bold uppercase text-muted-foreground tracking-tighter">Total registered personnel</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Package className="h-4 w-4 text-accent" /> High Turnover Item
+            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+              <Package className="h-4 w-4" /> Material Catalog
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">PVC Primer</div>
-            <p className="text-xs text-muted-foreground">Average 4.2 units per dispatch</p>
+            <div className="text-2xl font-black">{inventoryItems?.length || 0}</div>
+            <p className="text-[9px] font-bold uppercase text-muted-foreground tracking-tighter">Unique parts in tracking</p>
           </CardContent>
         </Card>
-        <Card className="border-destructive/20 bg-destructive/5">
+        <Card className="border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-destructive/5 text-destructive border-destructive/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-4 w-4" /> Waste Alert
+            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" /> Low Stock Warning
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">15% Discrepancy</div>
-            <p className="text-xs text-muted-foreground">Unaccounted copper fittings in Zone B</p>
+            <div className="text-2xl font-black">{inventoryItems?.filter(i => i.currentStock <= (i.reorderThreshold || 0)).length || 0}</div>
+            <p className="text-[9px] font-bold uppercase tracking-tighter opacity-70">Items below threshold</p>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Historical Log Access</CardTitle>
-          <CardDescription>Comprehensive audit trail of all inventory and staff interactions.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-full bg-secondary">
-                    <History className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium">Archive Report: Q{i} 2024 Inventory Audit</h4>
-                    <p className="text-xs text-muted-foreground">Generated by System Admin • May {15 + i}, 2024</p>
-                  </div>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs font-bold text-primary">Download PDF</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

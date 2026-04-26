@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { useRouter } from "next/navigation"
+import { collection, doc, writeBatch, serverTimestamp } from "firebase/firestore"
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
   CardContent, 
@@ -26,9 +28,11 @@ import { toast } from "@/hooks/use-toast"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
+  const firestore = useFirestore()
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [items, setItems] = useState([
-    { id: 1, item: "", quantity: 1 }
+    { id: Date.now(), inventoryItemId: "", quantity: 1 }
   ])
 
   useEffect(() => {
@@ -37,8 +41,21 @@ export default function DispatchPage() {
     }
   }, [user, isUserLoading, router])
 
+  // Fetch data
+  const inventoryQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "inventoryItems")
+  }, [firestore, user])
+  const { data: inventoryItems } = useCollection(inventoryQuery)
+
+  const staffQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "staffMembers")
+  }, [firestore, user])
+  const { data: staffMembers } = useCollection(staffQuery)
+
   const addItemRow = () => {
-    setItems([...items, { id: Date.now(), item: "", quantity: 1 }])
+    setItems([...items, { id: Date.now(), inventoryItemId: "", quantity: 1 }])
   }
 
   const removeItemRow = (id: number) => {
@@ -47,14 +64,67 @@ export default function DispatchPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleItemChange = (id: number, field: string, value: any) => {
+    setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    toast({
-      title: "Dispatch Recorded",
-      description: "Inventory has been updated and log entry created.",
-    })
-    // Reset form
-    setItems([{ id: 1, item: "", quantity: 1 }])
+    if (!firestore || !user || isSubmitting) return
+    setIsSubmitting(true)
+
+    const formData = new FormData(e.currentTarget)
+    const assignedToStaffMemberId = formData.get("assignedTo") as string
+    const purpose = formData.get("purpose") as string
+    const notes = formData.get("notes") as string
+
+    try {
+      // Use batch for atomic updates
+      const batch = writeBatch(firestore)
+
+      for (const item of items) {
+        if (!item.inventoryItemId) continue
+
+        const dispatchRef = doc(collection(firestore, "inventoryDispatches"))
+        const itemRef = doc(firestore, "inventoryItems", item.inventoryItemId)
+        const inventoryItem = inventoryItems?.find(i => i.id === item.inventoryItemId)
+
+        batch.set(dispatchRef, {
+          inventoryItemId: item.inventoryItemId,
+          quantity: Number(item.quantity),
+          dispatchDateTime: new Date().toISOString(),
+          dispatchedByStaffMemberId: "ADMIN", // Placeholder or fetch linked staff ID
+          assignedToStaffMemberId,
+          purpose,
+          notes,
+          createdAt: serverTimestamp()
+        })
+
+        // Decrement stock
+        if (inventoryItem) {
+          batch.update(itemRef, {
+            currentStock: (inventoryItem.currentStock || 0) - Number(item.quantity)
+          })
+        }
+      }
+
+      await batch.commit()
+
+      toast({
+        title: "Dispatch Recorded",
+        description: "Inventory levels updated and logs created.",
+      })
+      router.push("/inventory")
+    } catch (error) {
+      console.error("Dispatch error:", error)
+      toast({
+        variant: "destructive",
+        title: "Error Recording Dispatch",
+        description: "An unexpected error occurred. Please try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (isUserLoading || !user) {
@@ -95,20 +165,30 @@ export default function DispatchPage() {
               {items.map((row) => (
                 <div key={row.id} className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-7 md:col-span-8">
-                    <Select>
+                    <Select 
+                      required 
+                      onValueChange={(val) => handleItemChange(row.id, "inventoryItemId", val)}
+                    >
                       <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
                         <SelectValue placeholder="Select item..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="c1" className="font-bold">Copper Elbow 1/2"</SelectItem>
-                        <SelectItem value="p1" className="font-bold">PVC Pipe 1.5" (10ft)</SelectItem>
-                        <SelectItem value="v1" className="font-bold">Ball Valve 3/4"</SelectItem>
-                        <SelectItem value="s1" className="font-bold">Solder Lead-Free</SelectItem>
+                        {inventoryItems?.map((item) => (
+                          <SelectItem key={item.id} value={item.id} className="font-bold">
+                            {item.name} ({item.currentStock} {item.unitOfMeasure} avail.)
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-3 md:col-span-2">
-                    <Input type="number" min="1" defaultValue="1" className="h-12 border-2 border-black rounded-none font-black text-center" />
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      defaultValue="1" 
+                      onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)}
+                      className="h-12 border-2 border-black rounded-none font-black text-center" 
+                    />
                   </div>
                   <div className="col-span-2 flex justify-end">
                     <Button 
@@ -143,42 +223,37 @@ export default function DispatchPage() {
               <CardContent className="space-y-6 pt-6">
                 <div className="space-y-2">
                   <Label className="font-black uppercase text-xs">Technician</Label>
-                  <Select required>
+                  <Select name="assignedTo" required>
                     <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
                       <SelectValue placeholder="Choose personnel..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="t1" className="font-bold">John Doe</SelectItem>
-                      <SelectItem value="t2" className="font-bold">Sarah Smith</SelectItem>
-                      <SelectItem value="t3" className="font-bold">Mike Jones</SelectItem>
+                      {staffMembers?.map((staff) => (
+                        <SelectItem key={staff.id} value={staff.id} className="font-bold">
+                          {staff.firstName} {staff.lastName}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-black uppercase text-xs">Job Reference #</Label>
-                  <Input placeholder="e.g. JB-2024-001" className="h-12 border-2 border-black rounded-none font-bold" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-black uppercase text-xs flex items-center gap-2">
-                    <MapPin className="h-3 w-3" /> Delivery Address
-                  </Label>
-                  <Input 
-                    placeholder="Enter destination address..." 
-                    className="h-12 border-2 border-black rounded-none font-bold bg-muted/10 focus:bg-white" 
-                    required
-                  />
+                  <Label className="font-black uppercase text-xs">Job Reference / Purpose</Label>
+                  <Input name="purpose" placeholder="e.g. Job #4421 - Plumbing Restock" required className="h-12 border-2 border-black rounded-none font-bold" />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="font-black uppercase text-xs">Internal Notes</Label>
-                  <Input placeholder="Optional dispatch notes..." className="h-12 border-2 border-black rounded-none font-bold" />
+                  <Input name="notes" placeholder="Optional notes..." className="h-12 border-2 border-black rounded-none font-bold" />
                 </div>
               </CardContent>
               <CardFooter className="pt-2">
-                <Button type="submit" className="w-full h-16 bg-black text-white rounded-none font-black text-lg shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] hover:bg-black/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
-                  <Send className="mr-3 h-6 w-6" /> RECORD DISPATCH
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full h-16 bg-black text-white rounded-none font-black text-lg shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] hover:bg-black/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6 mr-3" /> : <Send className="mr-3 h-6 w-6" />} RECORD DISPATCH
                 </Button>
               </CardFooter>
             </Card>

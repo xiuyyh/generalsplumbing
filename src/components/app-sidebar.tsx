@@ -10,6 +10,7 @@ import {
   History,
   Users,
   LogOut,
+  Settings,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -65,6 +66,11 @@ const menuItems = [
     title: "Usage Analytics",
     url: "/analytics",
     icon: History,
+  },
+  {
+    title: "System Settings",
+    url: "/settings",
+    icon: Settings,
   },
 ]
 

@@ -6,52 +6,34 @@ service cloud.firestore {
      * Core Philosophy:
      * This ruleset implements a dual-layered authorization model: Role-Based Access Control (RBAC) 
      * via an admin sentinel collection and Ownership-Based Access Control for staff-related operations.
-     * 
-     * Data Structure:
-     * - /roles_admin/{userId}: Sentinel collection where the existence of a UID grants administrative rights.
-     * - /users/{userId}: Mapping documents that link a Firebase Auth UID to a specific StaffMember ID.
-     * - /staffMembers/{staffId}: Central directory of all employees.
-     * - /timeEntries/{entryId}: Activity logs for clock-ins/outs.
-     * - /inventoryItems & /inventoryDispatches: Management of physical assets and their movement.
-     * 
-     * Key Security Decisions:
-     * - Administrative actions (hiring workers, managing inventory, clocking staff in/out) are 
-     *   strictly guarded by the `isAdmin()` check.
-     * - Relational Integrity: In prototyping mode, we enforce that `staffMemberId` fields match 
-     *   the authenticated user's linked identity or the path parameters to prevent data hijacking.
-     * - Denormalization: Access to `timeEntries` and `inventoryDispatches` relies on IDs stored 
-     *   directly on the documents to minimize cross-document lookups.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the request is from a signed-in user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user's UID exists in the admin sentinel collection. */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    /** @description Checks if the provided UID matches the authenticated user. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Retrieves the linked StaffMember ID for the current authenticated user. */
     function getLinkedStaffId() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staffMemberId;
     }
 
     // --- Collection Rules ---
 
-    /**
-     * @description Security for the user-to-staff mapping collection.
-     * @path /users/{userId}
-     * @allow Authenticated users to read and update their own link; admins have full access.
-     */
+    /** Settings are readable by all (to check signup status) but writable only by admins. */
+    match /appSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
@@ -60,34 +42,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Sentinel collection for Administrative roles.
-     * @path /roles_admin/{userId}
-     * @allow Authenticated users to promote themselves to admin (for prototype convenience).
-     */
     match /roles_admin/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId); // Anyone can become admin by creating this doc
+      allow create: if isOwner(userId); // Convenience: First user can become admin
       allow update, delete: if isAdmin();
     }
 
-    /**
-     * @description Registry of staff members.
-     * @path /staffMembers/{staffMemberId}
-     * @allow All employees to view the directory; only admins to hire/edit/fire staff.
-     */
     match /staffMembers/{staffMemberId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update, delete: if isAdmin() && resource != null;
     }
 
-    /**
-     * @description Work shift logs (clock-in/out).
-     * @path /timeEntries/{timeEntryId}
-     * @allow Staff to view their own history; admins to check in/out workers and manage all logs.
-     */
     match /timeEntries/{timeEntryId} {
       allow get: if isAdmin() || (isSignedIn() && resource.data.staffMemberId == getLinkedStaffId());
       allow list: if isAdmin() || (isSignedIn()); 
@@ -96,22 +63,12 @@ service cloud.firestore {
       allow delete: if isAdmin() && resource != null;
     }
 
-    /**
-     * @description Product and part catalog.
-     * @path /inventoryItems/{inventoryItemId}
-     * @allow All employees to view stock levels; only admins to manage the catalog.
-     */
     match /inventoryItems/{inventoryItemId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update, delete: if isAdmin() && resource != null;
     }
 
-    /**
-     * @description Records of stock usage and dispatches.
-     * @path /inventoryDispatches/{inventoryDispatchId}
-     * @allow Staff to record dispatches they perform; admins to manage all records.
-     */
     match /inventoryDispatches/{inventoryDispatchId} {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.dispatchedByStaffMemberId == getLinkedStaffId() || resource.data.assignedToStaffMemberId == getLinkedStaffId()));
       allow list: if isSignedIn();

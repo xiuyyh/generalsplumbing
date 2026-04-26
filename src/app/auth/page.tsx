@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth, useUser, useFirestore } from "@/firebase"
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login"
+import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
+import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { doc } from "firebase/firestore"
 import { 
@@ -11,12 +11,12 @@ import {
   CardHeader, 
   CardTitle, 
   CardDescription,
-  CardFooter
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { LogIn, ShieldCheck, Loader2, ArrowLeft, Lock } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LogIn, ShieldCheck, Loader2, ArrowLeft, Lock, UserPlus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -28,6 +28,13 @@ export default function AuthPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Fetch signup settings
+  const settingsRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "appSettings", "auth")
+  }, [firestore])
+  const { data: authSettings, isLoading: isSettingsLoading } = useDoc(settingsRef)
 
   // Redirect and auto-promote to admin if logged in
   useEffect(() => {
@@ -48,7 +55,13 @@ export default function AuthPage() {
     initiateEmailSignIn(auth, email, password)
   }
 
-  if (isUserLoading) {
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsProcessing(true)
+    initiateEmailSignUp(auth, email, password)
+  }
+
+  if (isUserLoading || isSettingsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
@@ -56,6 +69,8 @@ export default function AuthPage() {
       </div>
     )
   }
+
+  const signupDisabled = !!authSettings?.signupDisabled
 
   return (
     <div className="max-w-md mx-auto py-12 space-y-8">
@@ -69,48 +84,101 @@ export default function AuthPage() {
           <ShieldCheck className="h-5 w-5" />
           <span className="text-xs font-black uppercase tracking-widest">Secure Entry Point</span>
         </div>
-        <CardHeader>
-          <div className="flex items-center justify-center py-2 border-2 border-black bg-muted/20 mb-6">
-            <Lock className="h-4 w-4 mr-2" />
-            <span className="text-xs font-black uppercase">Sign-in Only Access</span>
-          </div>
+        
+        <CardContent className="pt-6">
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className={`grid w-full grid-cols-${signupDisabled ? "1" : "2"} bg-muted border-2 border-black rounded-none h-12 p-1 mb-6`}>
+              <TabsTrigger value="signin" className="font-black uppercase text-xs data-[state=active]:bg-black data-[state=active]:text-white rounded-none">
+                Sign In
+              </TabsTrigger>
+              {!signupDisabled && (
+                <TabsTrigger value="signup" className="font-black uppercase text-xs data-[state=active]:bg-black data-[state=active]:text-white rounded-none">
+                  Register
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email-signin" className="font-black uppercase text-xs">Email Address</Label>
+                  <Input 
+                    id="email-signin" 
+                    type="email" 
+                    placeholder="admin@generalsplumbing.com" 
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="border-2 border-black rounded-none h-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password-signin" className="font-black uppercase text-xs">Password</Label>
+                  <Input 
+                    id="password-signin" 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="border-2 border-black rounded-none h-12"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  disabled={isProcessing}
+                  className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all uppercase"
+                >
+                  {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><LogIn className="mr-2 h-6 w-6" /> Authorize</>}
+                </Button>
+              </form>
+            </TabsContent>
+
+            {!signupDisabled && (
+              <TabsContent value="signup">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email-signup" className="font-black uppercase text-xs">Create Email</Label>
+                    <Input 
+                      id="email-signup" 
+                      type="email" 
+                      placeholder="name@example.com" 
+                      required 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="border-2 border-black rounded-none h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password-signup" className="font-black uppercase text-xs">Secure Password</Label>
+                    <Input 
+                      id="password-signup" 
+                      type="password" 
+                      required 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="border-2 border-black rounded-none h-12"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isProcessing}
+                    className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all uppercase"
+                  >
+                    {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Create Admin</>}
+                  </Button>
+                </form>
+              </TabsContent>
+            )}
+          </Tabs>
           
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email-signin" className="font-black uppercase text-xs">Email Address</Label>
-              <Input 
-                id="email-signin" 
-                type="email" 
-                placeholder="admin@generalsplumbing.com" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="border-2 border-black rounded-none h-12"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password-signin" className="font-black uppercase text-xs">Password</Label>
-              <Input 
-                id="password-signin" 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border-2 border-black rounded-none h-12"
-              />
-            </div>
-            <Button 
-              type="submit" 
-              disabled={isProcessing}
-              className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all uppercase"
-            >
-              {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><LogIn className="mr-2 h-6 w-6" /> Authorize</>}
-            </Button>
-            <p className="text-[9px] text-center font-black uppercase text-muted-foreground mt-4 leading-tight">
-              Sign-up has been disabled by system administrator. Contact management for new credentials.
+          <div className="mt-6 p-4 bg-muted/20 border-2 border-black border-dashed">
+            <p className="text-[9px] text-center font-black uppercase text-muted-foreground leading-tight">
+              {signupDisabled 
+                ? "Public registration is currently restricted. Existing admins only."
+                : "New accounts created here are automatically granted administrative privileges."}
             </p>
-          </form>
-        </CardHeader>
+          </div>
+        </CardContent>
       </Card>
 
       <div className="text-center">

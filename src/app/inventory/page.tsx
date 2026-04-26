@@ -105,7 +105,6 @@ export default function InventoryPage() {
     const newItem = {
       name: formData.get("name") as string,
       sku: formData.get("sku") as string,
-      unitOfMeasure: formData.get("unitOfMeasure") as string,
       currentStock: Number(formData.get("currentStock")),
       reorderThreshold: Number(formData.get("reorderThreshold")),
       description: formData.get("description") as string,
@@ -128,7 +127,6 @@ export default function InventoryPage() {
     const updatedData = {
       name: formData.get("name") as string,
       sku: formData.get("sku") as string,
-      unitOfMeasure: formData.get("unitOfMeasure") as string,
       reorderThreshold: Number(formData.get("reorderThreshold")),
       description: formData.get("description") as string,
       pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
@@ -157,7 +155,7 @@ export default function InventoryPage() {
 
     toast({
       title: "Stock Updated",
-      description: `Added ${restockAmount} ${selectedItem.unitOfMeasure} to ${selectedItem.name}.`,
+      description: `Added ${restockAmount} to ${selectedItem.name}.`,
     })
     setIsRestockDialogOpen(false)
     setRestockAmount(0)
@@ -215,15 +213,9 @@ export default function InventoryPage() {
                   <Label htmlFor="name" className="text-xs font-black uppercase">Item Name</Label>
                   <Input id="name" name="name" required className="border-2 border-black rounded-none h-10 font-bold" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sku" className="text-xs font-black uppercase">SKU / Part #</Label>
-                    <Input id="sku" name="sku" required className="border-2 border-black rounded-none h-10 font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unitOfMeasure" className="text-xs font-black uppercase">Unit (e.g. ft, pcs)</Label>
-                    <Input id="unitOfMeasure" name="unitOfMeasure" placeholder="pcs" required className="border-2 border-black rounded-none h-10 font-bold" />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sku" className="text-xs font-black uppercase">SKU / Part #</Label>
+                  <Input id="sku" name="sku" required className="border-2 border-black rounded-none h-10 font-bold" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -290,7 +282,7 @@ export default function InventoryPage() {
                     <TableCell className="font-mono text-[10px] text-muted-foreground uppercase">{item.sku}</TableCell>
                     <TableCell className="font-black text-xs uppercase">{item.name}</TableCell>
                     <TableCell className="text-center font-mono font-black text-xs">
-                      {item.currentStock} <span className="text-[8px] text-muted-foreground font-black uppercase">{item.unitOfMeasure}</span>
+                      {item.currentStock}
                     </TableCell>
                     <TableCell>
                       {item.currentStock <= (item.reorderThreshold || 0) ? (
@@ -367,15 +359,9 @@ export default function InventoryPage() {
                 <Label htmlFor="edit-name" className="text-xs font-black uppercase">Item Name</Label>
                 <Input id="edit-name" name="name" defaultValue={selectedItem?.name} required className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-sku" className="text-xs font-black uppercase">SKU / Part #</Label>
-                  <Input id="edit-sku" name="sku" defaultValue={selectedItem?.sku} required className="border-2 border-black rounded-none h-10 font-bold" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-unitOfMeasure" className="text-xs font-black uppercase">Unit (e.g. ft, pcs)</Label>
-                  <Input id="edit-unitOfMeasure" name="unitOfMeasure" defaultValue={selectedItem?.unitOfMeasure} required className="border-2 border-black rounded-none h-10 font-bold" />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sku" className="text-xs font-black uppercase">SKU / Part #</Label>
+                <Input id="edit-sku" name="sku" defaultValue={selectedItem?.sku} required className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
@@ -416,7 +402,7 @@ export default function InventoryPage() {
                 className="border-2 border-black rounded-none h-12 font-black text-lg text-center"
               />
               <p className="text-[9px] font-black uppercase text-muted-foreground text-center">
-                New stock will be: { (selectedItem?.currentStock || 0) + restockAmount } {selectedItem?.unitOfMeasure}
+                New stock will be: { (selectedItem?.currentStock || 0) + restockAmount }
               </p>
             </div>
           </div>

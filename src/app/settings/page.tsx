@@ -14,7 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText, Info } from "lucide-react"
+import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText, Info, AlertCircle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 
@@ -129,18 +129,20 @@ export default function SettingsPage() {
                 <Input 
                   name="chatId" 
                   defaultValue={telegramSettings?.chatId || ""} 
-                  placeholder="-100xxxxxxxxx or @username" 
+                  placeholder="-100xxxxxxxxx" 
                   required 
                   className="border-2 border-black rounded-none h-12 font-bold"
                 />
-                <div className="p-3 bg-muted/30 border-2 border-black border-dashed space-y-2">
-                  <p className="text-[9px] font-black uppercase flex items-center gap-2">
-                    <Info className="h-3 w-3" /> Setup Instructions:
+                
+                <div className="p-4 bg-amber-50 border-2 border-amber-200 space-y-3">
+                  <p className="text-[10px] font-black uppercase flex items-center gap-2 text-amber-800">
+                    <AlertCircle className="h-4 w-4" /> Critical Configuration Instructions:
                   </p>
-                  <ul className="text-[9px] font-bold text-muted-foreground uppercase list-disc pl-4 space-y-1">
-                    <li>Add the bot to your channel/group as an administrator.</li>
-                    <li>For private channels, use the numeric ID (e.g., -100123456789).</li>
-                    <li>Tip: Forward a message from your channel to @userinfobot to find your ID.</li>
+                  <ul className="text-[10px] font-bold text-amber-900/70 uppercase list-disc pl-5 space-y-1 leading-relaxed">
+                    <li>The bot MUST be added as an <b>Administrator</b> in the channel.</li>
+                    <li>For private channels/groups, you MUST use the <b>-100</b> prefix.</li>
+                    <li>If your ID is <code>3712964818</code>, you should enter: <code>-1003712964818</code>.</li>
+                    <li>Tip: Use the bot <span className="text-amber-950 underline">@getidsbot</span> in your channel to get the exact numeric ID.</li>
                   </ul>
                 </div>
               </div>

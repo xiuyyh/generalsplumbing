@@ -20,12 +20,15 @@ export async function sendTelegramMessage({ chatId, text, parseMode = 'HTML' }: 
     return null;
   }
 
+  // Ensure Chat ID is a string and trimmed
+  const targetChatId = chatId.trim();
+
   try {
     const response = await fetch(`${BASE_URL}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: targetChatId,
         text,
         parse_mode: parseMode,
       }),
@@ -33,7 +36,8 @@ export async function sendTelegramMessage({ chatId, text, parseMode = 'HTML' }: 
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`Telegram API Error: ${error.description || response.statusText}`);
+      // Include the Chat ID in the error for easier debugging of "chat not found"
+      throw new Error(`Telegram API Error: ${error.description || response.statusText} (ID: ${targetChatId})`);
     }
 
     return await response.json();

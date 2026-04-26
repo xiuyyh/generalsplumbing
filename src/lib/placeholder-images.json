@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "plumbing-tools",
+      "description": "Professional plumbing tools laid out on a clean surface",
+      "imageUrl": "https://picsum.photos/seed/plumbing-1/800/600",
+      "imageHint": "plumbing tools"
+    },
+    {
+      "id": "warehouse",
+      "description": "Well-organized plumbing supply warehouse",
+      "imageUrl": "https://picsum.photos/seed/warehouse-1/800/600",
+      "imageHint": "warehouse shelves"
+    },
+    {
+      "id": "technician",
+      "description": "Technician working on a residential plumbing job",
+      "imageUrl": "https://picsum.photos/seed/tech-1/800/600",
+      "imageHint": "plumber working"
+    }
+  ]
 }

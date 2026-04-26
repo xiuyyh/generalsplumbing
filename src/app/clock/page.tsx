@@ -38,7 +38,7 @@ export default function ClockPage() {
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
-      router.push("/auth")
+      router.replace("/auth")
     }
   }, [user, isAuthLoading, router])
 
@@ -130,16 +130,23 @@ export default function ClockPage() {
     setIsProcessing(false)
   }
 
-  if (isAuthLoading || isAdminLoading || isStaffLoading) {
+  if (isAuthLoading || !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verifying Registry...</p>
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verifying Identity...</p>
       </div>
     )
   }
 
-  if (!user) return null
+  if (isAdminLoading || isStaffLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Accessing Records...</p>
+      </div>
+    )
+  }
 
   if (!adminRole) {
     return (

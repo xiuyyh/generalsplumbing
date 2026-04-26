@@ -31,7 +31,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      router.push("/auth")
+      router.replace("/auth")
     }
   }, [user, isUserLoading, router])
 
@@ -59,8 +59,8 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-          {isUserLoading ? "Initializing System..." : "Redirecting to Auth Portal..."}
+        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
+          {isUserLoading ? "Verifying Access..." : "Redirecting to Portal..."}
         </p>
       </div>
     )

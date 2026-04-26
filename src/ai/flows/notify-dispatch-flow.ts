@@ -55,6 +55,9 @@ ${input.notes ? `<b>Notes:</b> ${input.notes}` : ''}
 
 /**
  * Flow to notify about a dispatch.
+ * 
+ * Note: This flow bypasses ai.generate() for standard notifications to avoid
+ * dependency on LLM API keys for basic system alerts.
  */
 const notifyDispatchFlow = ai.defineFlow(
   {
@@ -63,17 +66,7 @@ const notifyDispatchFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean() }),
   },
   async (input) => {
-    const { output } = await ai.generate({
-      prompt: `Send a telegram notification for the dispatch of ${input.itemName}.`,
-      tools: [sendTelegramNotificationTool],
-      config: {
-        // Pass the input directly to ensure the tool gets the right data
-      }
-    });
-    
-    // In a real flow, we might use LLM to summarize, 
-    // but for strict notification we call the tool directly or via generation.
-    // For this prototype, we'll ensure the notification is sent.
+    // Call the notification tool directly to ensure delivery without requiring Gemini API keys
     const result = await sendTelegramNotificationTool(input);
     return { success: result.success };
   }

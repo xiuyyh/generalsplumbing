@@ -1,6 +1,9 @@
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useUser } from "@/firebase"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -25,7 +28,8 @@ import {
   Package, 
   ArrowUpDown, 
   MoreHorizontal,
-  Edit2
+  Edit2,
+  Loader2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -48,13 +52,30 @@ const inventoryItems = [
 ]
 
 export default function InventoryPage() {
+  const { user, isUserLoading } = useUser()
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, isUserLoading, router])
 
   const filteredItems = inventoryItems.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Access...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

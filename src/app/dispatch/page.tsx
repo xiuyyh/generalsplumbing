@@ -1,6 +1,9 @@
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useUser } from "@/firebase"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -19,13 +22,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash2, ClipboardList, Send } from "lucide-react"
+import { Truck, Plus, Trash2, ClipboardList, Send, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function DispatchPage() {
+  const { user, isUserLoading } = useUser()
+  const router = useRouter()
   const [items, setItems] = useState([
     { id: 1, item: "", quantity: 1 }
   ])
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, isUserLoading, router])
 
   const addItemRow = () => {
     setItems([...items, { id: Date.now(), item: "", quantity: 1 }])
@@ -45,6 +56,15 @@ export default function DispatchPage() {
     })
     // Reset form
     setItems([{ id: 1, item: "", quantity: 1 }])
+  }
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Access...</p>
+      </div>
+    )
   }
 
   return (

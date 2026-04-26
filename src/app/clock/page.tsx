@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, query, where, getDocs, limit, orderBy } from "firebase/firestore"
+import { collection, doc, query, where, getDocs, limit } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Clock, Play, Square, User, Loader2, ShieldAlert } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Clock, Play, Square, Loader2, ShieldAlert } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useDoc } from "@/firebase/firestore/use-doc"
 
@@ -67,11 +68,15 @@ export default function ClockPage() {
         limit(1)
       )
 
-      const querySnapshot = await getDocs(q)
-      if (!querySnapshot.empty) {
-        setActiveEntry({ ...querySnapshot.docs[0].data(), id: querySnapshot.docs[0].id })
-      } else {
-        setActiveEntry(null)
+      try {
+        const querySnapshot = await getDocs(q)
+        if (!querySnapshot.empty) {
+          setActiveEntry({ ...querySnapshot.docs[0].data(), id: querySnapshot.docs[0].id })
+        } else {
+          setActiveEntry(null)
+        }
+      } catch (e) {
+        console.error("Error checking active entry:", e)
       }
     }
 
@@ -98,7 +103,7 @@ export default function ClockPage() {
         title: "Staff Clocked In",
         description: `${staff?.firstName} is now active.`,
       })
-      // Optimistic update for UI feel (though real state comes from checkActiveEntry effect)
+      // Optimistic update
       setActiveEntry({ ...newEntry, id: 'temp' })
     } else {
       // Clock Out
@@ -144,7 +149,7 @@ export default function ClockPage() {
       <Card className="border-2 overflow-hidden shadow-2xl">
         <div className={`h-3 ${activeEntry ? 'bg-black' : 'bg-muted'}`} />
         <CardHeader className="text-center pb-2">
-          <div className="space-y-4">
+          <div className="space-y-4 text-left">
             <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Worker</Label>
             <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
               <SelectTrigger className="h-14 text-lg font-bold">

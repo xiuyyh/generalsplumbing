@@ -3,6 +3,7 @@ import './globals.css';
 import {SidebarProvider} from '@/components/ui/sidebar';
 import {AppSidebar} from '@/components/app-sidebar';
 import {Toaster} from '@/components/ui/toaster';
+import {FirebaseClientProvider} from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'Generals Plumbing - Management Suite',
@@ -22,16 +23,18 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full bg-background">
-            <AppSidebar />
-            <main className="flex-1 overflow-y-auto">
-              <div className="container mx-auto p-4 md:p-8">
-                {children}
-              </div>
-            </main>
-          </div>
-        </SidebarProvider>
+        <FirebaseClientProvider>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full bg-background">
+              <AppSidebar />
+              <main className="flex-1 overflow-y-auto">
+                <div className="container mx-auto p-4 md:p-8">
+                  {children}
+                </div>
+              </main>
+            </div>
+          </SidebarProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

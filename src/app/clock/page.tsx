@@ -33,18 +33,18 @@ export default function ClockPage() {
   const [activeEntry, setActiveEntry] = useState<any>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Admin check
+  // Admin check - gated by user presence
   const adminRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return doc(firestore, "roles_admin", user.uid)
   }, [firestore, user])
   const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
 
-  // Staff list for selection
+  // Staff list for selection - gated by user presence
   const staffQuery = useMemoFirebase(() => {
-    if (!firestore) return null
+    if (!firestore || !user) return null
     return collection(firestore, "staffMembers")
-  }, [firestore])
+  }, [firestore, user])
   const { data: staffMembers, isLoading: isStaffLoading } = useCollection(staffQuery)
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function ClockPage() {
   // Check for active clock-in for selected staff
   useEffect(() => {
     async function checkActiveEntry() {
-      if (!firestore || !selectedStaffId) {
+      if (!firestore || !selectedStaffId || !user) {
         setActiveEntry(null)
         return
       }
@@ -81,10 +81,10 @@ export default function ClockPage() {
     }
 
     checkActiveEntry()
-  }, [selectedStaffId, firestore])
+  }, [selectedStaffId, firestore, user])
 
   const handleClockToggle = () => {
-    if (!firestore || !selectedStaffId || isProcessing) return
+    if (!firestore || !selectedStaffId || isProcessing || !user) return
     setIsProcessing(true)
 
     const now = new Date().toISOString()
@@ -123,8 +123,19 @@ export default function ClockPage() {
 
   if (isAdminLoading || isStaffLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verifying Registry...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Sign In Required</h2>
+        <p className="text-muted-foreground font-bold">Please sign in from the dashboard to access the attendance system.</p>
       </div>
     )
   }
@@ -132,9 +143,9 @@ export default function ClockPage() {
   if (!adminRole) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-4">
-        <ShieldAlert className="h-16 w-16 mx-auto text-destructive" />
-        <h2 className="text-2xl font-black">Admin Access Required</h2>
-        <p className="text-muted-foreground">Only administrators are authorized to clock workers in or out for shifts.</p>
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Admin Access Required</h2>
+        <p className="text-muted-foreground font-bold">Only administrators are authorized to clock workers in or out for shifts.</p>
       </div>
     )
   }
@@ -142,22 +153,22 @@ export default function ClockPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-headline font-bold">Attendance Manager</h1>
-        <p className="text-muted-foreground mt-2">Manage worker shifts and time tracking</p>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">Attendance Manager</h1>
+        <p className="text-muted-foreground font-bold mt-2 tracking-wide uppercase text-xs">Manage worker shifts and time tracking</p>
       </div>
 
-      <Card className="border-2 overflow-hidden shadow-2xl">
-        <div className={`h-3 ${activeEntry ? 'bg-black' : 'bg-muted'}`} />
+      <Card className="border-4 border-black overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-white">
+        <div className={`h-4 ${activeEntry ? 'bg-black' : 'bg-muted'}`} />
         <CardHeader className="text-center pb-2">
           <div className="space-y-4 text-left">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Worker</Label>
+            <Label className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Select Worker</Label>
             <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-              <SelectTrigger className="h-14 text-lg font-bold">
+              <SelectTrigger className="h-16 text-lg font-black border-2 border-black rounded-none">
                 <SelectValue placeholder="Choose a technician..." />
               </SelectTrigger>
               <SelectContent>
                 {staffMembers?.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
+                  <SelectItem key={staff.id} value={staff.id} className="font-bold">
                     {staff.firstName} {staff.lastName} - {staff.officialRole}
                   </SelectItem>
                 ))}
@@ -168,9 +179,9 @@ export default function ClockPage() {
           {selectedStaffId && (
             <div className="mt-6 flex justify-center gap-2">
               {activeEntry ? (
-                <Badge className="bg-black text-white px-4 py-1 text-sm font-black uppercase">On Duty</Badge>
+                <Badge className="bg-black text-white px-6 py-2 text-sm font-black uppercase rounded-none">On Duty</Badge>
               ) : (
-                <Badge variant="secondary" className="px-4 py-1 text-sm font-black uppercase">Clocked Out</Badge>
+                <Badge variant="secondary" className="px-6 py-2 text-sm font-black uppercase rounded-none border-2 border-black">Clocked Out</Badge>
               )}
             </div>
           )}
@@ -178,10 +189,10 @@ export default function ClockPage() {
 
         <CardContent className="pt-6 space-y-8">
           <div className="text-center space-y-2">
-            <p className="text-5xl md:text-7xl font-headline font-black tabular-nums tracking-tighter text-black">
+            <p className="text-6xl md:text-8xl font-black tabular-nums tracking-tighter text-black uppercase">
               {currentTime ? currentTime.toLocaleTimeString([], { hour12: true }) : "--:--:--"}
             </p>
-            <p className="text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">
+            <p className="text-sm font-black text-muted-foreground uppercase tracking-[0.3em]">
               {currentTime ? currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : "Loading..."}
             </p>
           </div>
@@ -191,26 +202,26 @@ export default function ClockPage() {
               <Button 
                 size="lg" 
                 disabled={!selectedStaffId || isProcessing}
-                className="h-20 text-xl font-black bg-black text-white shadow-xl hover:scale-[1.02] transition-transform" 
+                className="h-24 text-2xl font-black bg-black text-white rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all" 
                 onClick={handleClockToggle}
               >
-                <Play className="mr-3 h-6 w-6 fill-current" /> START SHIFT
+                <Play className="mr-3 h-8 w-8 fill-current" /> START SHIFT
               </Button>
             ) : (
               <Button 
                 size="lg" 
                 variant="destructive" 
                 disabled={isProcessing}
-                className="h-20 text-xl font-black shadow-xl hover:scale-[1.02] transition-transform" 
+                className="h-24 text-2xl font-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all" 
                 onClick={handleClockToggle}
               >
-                <Square className="mr-3 h-6 w-6 fill-current" /> END SHIFT
+                <Square className="mr-3 h-8 w-8 fill-current" /> END SHIFT
               </Button>
             )}
             
             {activeEntry && (
-              <div className="bg-muted p-4 rounded-lg flex items-center justify-center gap-3 text-sm font-bold text-muted-foreground">
-                <Clock className="h-4 w-4" />
+              <div className="bg-muted p-4 border-2 border-black rounded-none flex items-center justify-center gap-3 text-sm font-black text-black uppercase tracking-tight">
+                <Clock className="h-5 w-5" />
                 Shift started at {new Date(activeEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             )}

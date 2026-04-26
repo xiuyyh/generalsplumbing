@@ -85,11 +85,11 @@ export default function Dashboard() {
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
-          <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter">Command Center</h1>
+          <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter">Admin Panel</h1>
           <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Status: Online</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild className="border-4 border-black font-black h-10 px-4 rounded-none">
+          <Button variant="outline" size="sm" asChild className="border-2 border-black font-black h-10 px-4 rounded-none">
             <Link href="/analytics"><History className="mr-2 h-4 w-4" /> Reports</Link>
           </Button>
           <Button size="sm" asChild className="bg-black text-white font-black h-10 px-4 rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)]">

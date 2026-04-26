@@ -127,7 +127,7 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={handleLogout}
               tooltip="Terminate Session"
-              className="w-full h-14 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="w-full h-14 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
               <LogOut className="h-6 w-6 shrink-0" />
               <span className="group-data-[collapsible=icon]:hidden">Terminate Session</span>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -125,7 +124,7 @@ export default function StaffPage() {
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-black hover:bg-black/90 text-white font-black rounded-none h-12 px-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)]">
+            <Button className="bg-black hover:bg-black/90 text-white font-black rounded-none h-12 px-8 shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]">
               <UserPlus className="mr-2 h-5 w-5" /> HIRE NEW STAFF
             </Button>
           </DialogTrigger>
@@ -173,7 +172,7 @@ export default function StaffPage() {
         </Dialog>
       </div>
 
-      <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+      <Card className="border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-black">

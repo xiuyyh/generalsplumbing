@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -173,7 +172,7 @@ export default function ClockPage() {
         <p className="text-muted-foreground font-bold mt-2 tracking-wide uppercase text-xs">Manual override enabled for administrators</p>
       </div>
 
-      <Card className="border-4 border-black overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-white">
+      <Card className="border-4 border-black overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
         <div className={`h-4 ${activeEntry ? 'bg-black' : 'bg-muted'}`} />
         <CardHeader className="space-y-6 pb-2">
           <div className="space-y-4">
@@ -231,7 +230,7 @@ export default function ClockPage() {
               <Button 
                 size="lg" 
                 disabled={!selectedStaffId || !customDateTime || isProcessing}
-                className="h-24 text-2xl font-black bg-black text-white rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30" 
+                className="h-24 text-2xl font-black bg-black text-white rounded-none shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30" 
                 onClick={handleClockToggle}
               >
                 <Play className="mr-3 h-8 w-8 fill-current" /> RECORD CLOCK-IN
@@ -241,7 +240,7 @@ export default function ClockPage() {
                 size="lg" 
                 variant="destructive" 
                 disabled={!customDateTime || isProcessing}
-                className="h-24 text-2xl font-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30" 
+                className="h-24 text-2xl font-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30" 
                 onClick={handleClockToggle}
               >
                 <Square className="mr-3 h-8 w-8 fill-current" /> RECORD CLOCK-OUT

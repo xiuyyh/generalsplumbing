@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useUser } from "@/firebase"
@@ -60,7 +59,7 @@ export default function Dashboard() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-          {isUserLoading ? "Verifying Access..." : "Redirecting to Portal..."}
+          {isUserLoading ? "Verifying Access..." : "Redirecting to Terminal..."}
         </p>
       </div>
     )
@@ -77,7 +76,7 @@ export default function Dashboard() {
           <Button variant="outline" size="sm" asChild className="border-4 border-black font-black h-12 px-6 rounded-none">
             <Link href="/analytics"><History className="mr-2 h-4 w-4" /> Reports</Link>
           </Button>
-          <Button size="sm" asChild className="bg-black text-white font-black h-12 px-6 rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)]">
+          <Button size="sm" asChild className="bg-black text-white font-black h-12 px-6 rounded-none shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]">
             <Link href="/dispatch"><Truck className="mr-2 h-4 w-4" /> Dispatch</Link>
           </Button>
         </div>
@@ -85,7 +84,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card key={stat.title} className="border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-none">
+          <Card key={stat.title} className="border-4 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] rounded-none">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -102,7 +101,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-4 border-black rounded-none shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <Card className="lg:col-span-2 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader className="border-b-4 border-black">
             <CardTitle className="text-2xl font-black uppercase">Live Logs</CardTitle>
             <CardDescription className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground">Real-time operational activity</CardDescription>
@@ -135,7 +134,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-4 border-black rounded-none shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader className="border-b-4 border-black">
             <CardTitle className="text-2xl font-black uppercase">Stock Alerts</CardTitle>
             <CardDescription className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground">Critial inventory status</CardDescription>

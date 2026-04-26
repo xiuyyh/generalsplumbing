@@ -58,7 +58,7 @@ export default function AuthPage() {
 
   if (isUserLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Verifying Identity...</p>
       </div>
@@ -72,7 +72,7 @@ export default function AuthPage() {
         <p className="text-muted-foreground font-bold uppercase text-xs tracking-[0.2em]">Generals Plumbing Management</p>
       </div>
 
-      <Card className="border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+      <Card className="border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
         <div className="bg-black text-white p-4 flex items-center justify-center gap-2">
           <ShieldCheck className="h-5 w-5" />
           <span className="text-xs font-black uppercase tracking-widest">Secure Entry Point</span>
@@ -112,7 +112,7 @@ export default function AuthPage() {
                 <Button 
                   type="submit" 
                   disabled={isProcessing}
-                  className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase"
+                  className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase"
                 >
                   {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><LogIn className="mr-2 h-6 w-6" /> Authorize</>}
                 </Button>
@@ -147,7 +147,7 @@ export default function AuthPage() {
                 <Button 
                   type="submit" 
                   disabled={isProcessing}
-                  className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase"
+                  className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase"
                 >
                   {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Register Admin</>}
                 </Button>
@@ -162,7 +162,7 @@ export default function AuthPage() {
 
       <div className="text-center">
         <Button variant="link" asChild className="text-black font-black uppercase text-xs">
-          <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Return to Public Dashboard</Link>
+          <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Return to Terminal</Link>
         </Button>
       </div>
     </div>

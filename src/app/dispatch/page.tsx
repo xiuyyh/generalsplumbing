@@ -171,11 +171,11 @@ export default function DispatchPage() {
             notes,
             chatId: telegramSettings.chatId
           }).catch(err => {
-            console.error("Notification Flow Error:", err);
+            const errorMsg = err instanceof Error ? err.message : "Notification delivery failed."
             toast({
               variant: "destructive",
-              title: "Notification Failed",
-              description: "The alert could not be sent. Check logs or API settings."
+              title: "Telegram Error",
+              description: errorMsg
             });
           });
         }

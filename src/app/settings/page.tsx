@@ -14,7 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText } from "lucide-react"
+import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText, Info } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 
@@ -55,7 +55,7 @@ export default function SettingsPage() {
     if (!telegramSettingsRef) return
     setIsSaving(true)
     const formData = new FormData(e.currentTarget)
-    const chatId = formData.get("chatId") as string
+    const chatId = (formData.get("chatId") as string).trim()
 
     setDocumentNonBlocking(telegramSettingsRef, { chatId }, { merge: true })
     toast({ title: "Telegram Settings Saved", description: "Chat ID updated for notifications." })
@@ -129,11 +129,20 @@ export default function SettingsPage() {
                 <Input 
                   name="chatId" 
                   defaultValue={telegramSettings?.chatId || ""} 
-                  placeholder="-100xxxxxxxxx" 
+                  placeholder="-100xxxxxxxxx or @username" 
                   required 
                   className="border-2 border-black rounded-none h-12 font-bold"
                 />
-                <p className="text-[9px] font-bold text-muted-foreground uppercase">Provide your group or individual Chat ID to receive dispatch alerts.</p>
+                <div className="p-3 bg-muted/30 border-2 border-black border-dashed space-y-2">
+                  <p className="text-[9px] font-black uppercase flex items-center gap-2">
+                    <Info className="h-3 w-3" /> Setup Instructions:
+                  </p>
+                  <ul className="text-[9px] font-bold text-muted-foreground uppercase list-disc pl-4 space-y-1">
+                    <li>Add the bot to your channel/group as an administrator.</li>
+                    <li>For private channels, use the numeric ID (e.g., -100123456789).</li>
+                    <li>Tip: Forward a message from your channel to @userinfobot to find your ID.</li>
+                  </ul>
+                </div>
               </div>
               <Button type="submit" disabled={isSaving} className="w-full h-12 bg-black text-white font-black uppercase rounded-none border-2 border-black">
                 {isSaving ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> Update Notification Bridge</>}

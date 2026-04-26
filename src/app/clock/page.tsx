@@ -16,10 +16,12 @@ import { toast } from "@/hooks/use-toast"
 export default function ClockPage() {
   const [isClockedIn, setIsClockedIn] = useState(false)
   const [startTime, setStartTime] = useState<Date | null>(null)
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [elapsedTime, setElapsedTime] = useState("00:00:00")
 
   useEffect(() => {
+    // Initialize time only on the client to avoid hydration mismatch
+    setCurrentTime(new Date())
     const timer = setInterval(() => {
       setCurrentTime(new Date())
     }, 1000)
@@ -91,10 +93,10 @@ export default function ClockPage() {
         <CardContent className="pt-6 space-y-8">
           <div className="text-center space-y-2">
             <p className="text-4xl md:text-6xl font-headline font-black tabular-nums tracking-tighter text-primary">
-              {currentTime.toLocaleTimeString([], { hour12: true })}
+              {currentTime ? currentTime.toLocaleTimeString([], { hour12: true }) : "--:--:--"}
             </p>
             <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-              {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+              {currentTime ? currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : "Loading date..."}
             </p>
           </div>
 

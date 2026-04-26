@@ -86,14 +86,16 @@ export default function TimesheetsPage() {
 
   const handleDeleteEntry = () => {
     if (!firestore || !selectedEntry) return
-    deleteDocumentNonBlocking(doc(firestore, "timeEntries", selectedEntry.id))
     
+    const targetId = selectedEntry.id;
+    deleteDocumentNonBlocking(doc(firestore, "timeEntries", targetId))
+    
+    setIsDeleteDialogOpen(false)
+    setIsDetailsOpen(false)
     setTimeout(() => {
       toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
-      setIsDeleteDialogOpen(false)
-      setIsDetailsOpen(false)
       setSelectedEntry(null)
-    }, 0)
+    }, 100)
   }
 
   return (

@@ -79,14 +79,12 @@ export default function InventoryPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [restockAmount, setRestockAmount] = useState<number>(0)
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push("/auth")
     }
   }, [user, isUserLoading, router])
 
-  // Fetch inventory from Firestore
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return collection(firestore, "inventoryItems")
@@ -114,13 +112,13 @@ export default function InventoryPage() {
 
     addDocumentNonBlocking(collection(firestore, "inventoryItems"), newItem)
     
+    setIsAddDialogOpen(false)
     setTimeout(() => {
       toast({
         title: "Item Created",
         description: `${newItem.name} added to catalog.`,
       })
-      setIsAddDialogOpen(false)
-    }, 0)
+    }, 100)
   }
 
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -139,14 +137,14 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     updateDocumentNonBlocking(itemRef, updatedData)
     
+    setIsEditDialogOpen(false)
     setTimeout(() => {
       toast({
         title: "Item Updated",
         description: `${updatedData.name} record saved.`,
       })
-      setIsEditDialogOpen(false)
       setSelectedItem(null)
-    }, 0)
+    }, 100)
   }
 
   const handleRestock = () => {
@@ -159,15 +157,15 @@ export default function InventoryPage() {
       currentStock: newStock
     })
 
+    setIsRestockDialogOpen(false)
     setTimeout(() => {
       toast({
         title: "Stock Updated",
         description: `Added ${restockAmount} to ${selectedItem.name}.`,
       })
-      setIsRestockDialogOpen(false)
       setRestockAmount(0)
       setSelectedItem(null)
-    }, 0)
+    }, 100)
   }
 
   const handleDelete = () => {
@@ -176,15 +174,15 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     deleteDocumentNonBlocking(itemRef)
     
+    setIsDeleteDialogOpen(false)
     setTimeout(() => {
       toast({
         variant: "destructive",
         title: "Item Deleted",
         description: `${selectedItem.name} removed from catalog.`,
       })
-      setIsDeleteDialogOpen(false)
       setSelectedItem(null)
-    }, 0)
+    }, 100)
   }
 
   if (isUserLoading || !user) {
@@ -354,7 +352,6 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="border-4 border-black rounded-none sm:max-w-[500px]">
           <form onSubmit={handleUpdateItem}>
@@ -391,7 +388,6 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Restock Dialog */}
       <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
         <DialogContent className="border-4 border-black rounded-none sm:max-w-[400px]">
           <DialogHeader>
@@ -428,7 +424,6 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>

@@ -63,7 +63,6 @@ export default function DispatchPage() {
     }
   }, [user, isUserLoading, router])
 
-  // Fetch Telegram Settings
   const settingsRef = useMemoFirebase(() => {
     if (!firestore) return null
     return doc(firestore, "appSettings", "telegram")
@@ -104,13 +103,15 @@ export default function DispatchPage() {
 
   const handleDeleteDispatch = () => {
     if (!firestore || !selectedDispatch) return
-    deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", selectedDispatch.id))
     
+    const targetId = selectedDispatch.id;
+    deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", targetId))
+    
+    setIsDeleteDialogOpen(false)
     setTimeout(() => {
       toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
-      setIsDeleteDialogOpen(false)
       setSelectedDispatch(null)
-    }, 0)
+    }, 100)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -164,7 +165,6 @@ export default function DispatchPage() {
       await batch.commit()
       toast({ title: "Dispatch Recorded", description: "Inventory updated." })
       
-      // Send Telegram Notifications
       if (telegramSettings?.chatId) {
         for (const data of dispatchDataForNotification) {
           notifyDispatch({
@@ -223,7 +223,7 @@ export default function DispatchPage() {
                     <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold"><SelectValue placeholder="Select item..." /></SelectTrigger>
                     <SelectContent>
                       {inventoryItems?.map((item) => (
-                        <SelectItem key={item.id} value={item.id} className="font-bold">{item.name} ({item.currentStock} {item.unitOfMeasure} left)</SelectItem>
+                        <SelectItem key={item.id} value={item.id} className="font-bold">{item.name} ({item.currentStock} left)</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

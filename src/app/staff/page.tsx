@@ -50,7 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UserPlus, MapPin, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2, AlertTriangle } from "lucide-react"
+import { UserPlus, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2, AlertTriangle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useDoc } from "@/firebase/firestore/use-doc"
 
@@ -98,10 +98,10 @@ export default function StaffPage() {
 
     addDocumentNonBlocking(collection(firestore, "staffMembers"), staffData)
     
+    setIsAddDialogOpen(false)
     setTimeout(() => {
       toast({ title: "Staff Created", description: "Personnel added to registry." })
-      setIsAddDialogOpen(false)
-    }, 0)
+    }, 100)
   }
 
   const handleUpdateStaff = (e: React.FormEvent<HTMLFormElement>) => {
@@ -120,22 +120,22 @@ export default function StaffPage() {
 
     updateDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id), updatedData)
     
+    setIsEditDialogOpen(false)
     setTimeout(() => {
       toast({ title: "Staff Updated", description: "Record modified successfully." })
-      setIsEditDialogOpen(false)
       setSelectedStaff(null)
-    }, 0)
+    }, 100)
   }
 
   const handleDeleteStaff = () => {
     if (!firestore || !selectedStaff) return
     deleteDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id))
     
+    setIsDeleteDialogOpen(false)
     setTimeout(() => {
       toast({ variant: "destructive", title: "Record Deleted", description: "Staff member removed from system." })
-      setIsDeleteDialogOpen(false)
       setSelectedStaff(null)
-    }, 0)
+    }, 100)
   }
 
   if (isAuthLoading || !user) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -214,7 +214,6 @@ export default function StaffPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px] border-4 border-black rounded-none">
           <form onSubmit={handleUpdateStaff}>
@@ -234,7 +233,6 @@ export default function StaffPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>

@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import {SidebarProvider} from '@/components/ui/sidebar';
 import {AppSidebar} from '@/components/app-sidebar';
+import {NavHeader} from '@/components/nav-header';
 import {Toaster} from '@/components/ui/toaster';
 import {FirebaseClientProvider} from '@/firebase';
 
@@ -20,18 +21,21 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <SidebarProvider>
-            <div className="flex min-h-screen w-full bg-background">
+          <SidebarProvider defaultOpen={true}>
+            <div className="flex min-h-screen w-full bg-background overflow-hidden">
               <AppSidebar />
-              <main className="flex-1 overflow-y-auto">
-                <div className="container mx-auto p-4 md:p-8">
-                  {children}
-                </div>
-              </main>
+              <div className="flex-1 flex flex-col min-w-0">
+                <NavHeader />
+                <main className="flex-1 overflow-y-auto">
+                  <div className="container mx-auto p-4 md:p-8">
+                    {children}
+                  </div>
+                </main>
+              </div>
             </div>
           </SidebarProvider>
         </FirebaseClientProvider>

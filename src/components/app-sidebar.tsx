@@ -10,10 +10,12 @@ import {
   FileText,
   History,
   Users,
+  LogOut,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useUser } from "@/firebase"
+import { useUser, useAuth } from "@/firebase"
+import { signOut } from "firebase/auth"
 
 import {
   Sidebar,
@@ -26,6 +28,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarFooter,
 } from "@/components/ui/sidebar"
 
 const menuItems = [
@@ -69,21 +72,30 @@ const menuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { user } = useUser()
+  const auth = useAuth()
 
   if (!user || pathname === "/auth") {
     return null
   }
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
+
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="h-16 flex items-center px-6">
-        <div className="flex items-center gap-2 font-headline font-bold text-xl text-primary">
+    <Sidebar collapsible="icon" className="border-r-4 border-black">
+      <SidebarHeader className="h-16 flex items-center px-6 border-b-4 border-black bg-black text-white">
+        <div className="flex items-center gap-2 font-black text-xl uppercase tracking-tighter">
           <span className="group-data-[collapsible=icon]:hidden">Generals Plumbing</span>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-black uppercase text-[10px] tracking-widest text-muted-foreground mb-2 px-4">Operations</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -92,9 +104,10 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === item.url}
                     tooltip={item.title}
+                    className="h-12 px-4 rounded-none font-black uppercase text-xs tracking-wider data-[active=true]:bg-black data-[active=true]:text-white transition-colors"
                   >
                     <Link href={item.url}>
-                      <item.icon />
+                      <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -104,7 +117,20 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarRail />
+      <SidebarFooter className="p-4 bg-white border-t-4 border-black">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              onClick={handleLogout}
+              className="w-full h-12 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="group-data-[collapsible=icon]:hidden">Terminate Session</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail className="bg-black" />
     </Sidebar>
   )
 }

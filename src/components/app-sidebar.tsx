@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,6 +13,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useUser } from "@/firebase"
 
 import {
   Sidebar,
@@ -66,6 +68,11 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { user } = useUser()
+
+  if (!user || pathname === "/auth") {
+    return null
+  }
 
   return (
     <Sidebar collapsible="icon">

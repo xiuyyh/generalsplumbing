@@ -1,7 +1,9 @@
 
 "use client"
 
-import { useUser, useAuth } from "@/firebase"
+import { useUser } from "@/firebase"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -17,9 +19,7 @@ import {
   ArrowUpRight, 
   AlertTriangle,
   History,
-  LogIn,
-  Loader2,
-  ShieldAlert
+  Loader2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,13 @@ import Link from "next/link"
 
 export default function Dashboard() {
   const { user, isUserLoading } = useUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, isUserLoading, router])
 
   const stats = [
     { title: "Staff Clocked In", value: "12", icon: Users, color: "text-black" },
@@ -48,41 +55,13 @@ export default function Dashboard() {
     { name: "PEX Tubing Blue", stock: 15, min: 50 },
   ]
 
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Initializing System...</p>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 text-center">
-        <div className="space-y-2">
-          <h1 className="text-6xl font-black tracking-tighter uppercase">Generals Plumbing</h1>
-          <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">Staff & Inventory Command Center</p>
-        </div>
-        <Card className="max-w-md w-full border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader className="text-left bg-black text-white">
-            <CardTitle className="text-xl font-black uppercase flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5" /> Access Denied
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <p className="font-bold text-muted-foreground mb-6 uppercase text-xs tracking-tight">Authenticated administrative credentials are required to access fleet management and inventory control systems.</p>
-            <Button 
-              size="lg" 
-              asChild
-              className="w-full h-20 text-2xl font-black bg-black text-white hover:scale-[1.02] transition-transform rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
-            >
-              <Link href="/auth">
-                <LogIn className="mr-3 h-8 w-8" /> ENTER SYSTEM
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+          {isUserLoading ? "Initializing System..." : "Redirecting to Auth Portal..."}
+        </p>
       </div>
     )
   }

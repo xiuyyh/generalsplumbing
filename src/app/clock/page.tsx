@@ -1,9 +1,11 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, query, where, getDocs, limit } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -26,12 +28,19 @@ import { toast } from "@/hooks/use-toast"
 import { useDoc } from "@/firebase/firestore/use-doc"
 
 export default function ClockPage() {
-  const { user } = useUser()
+  const { user, isUserLoading: isAuthLoading } = useUser()
   const firestore = useFirestore()
+  const router = useRouter()
   const [selectedStaffId, setSelectedStaffId] = useState<string>("")
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [activeEntry, setActiveEntry] = useState<any>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, isAuthLoading, router])
 
   // Admin check - gated by user presence
   const adminRef = useMemoFirebase(() => {
@@ -121,7 +130,7 @@ export default function ClockPage() {
     setIsProcessing(false)
   }
 
-  if (isAdminLoading || isStaffLoading) {
+  if (isAuthLoading || isAdminLoading || isStaffLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -130,15 +139,7 @@ export default function ClockPage() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
-        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
-        <h2 className="text-2xl font-black uppercase tracking-tighter">Sign In Required</h2>
-        <p className="text-muted-foreground font-bold">Please sign in from the dashboard to access the attendance system.</p>
-      </div>
-    )
-  }
+  if (!user) return null
 
   if (!adminRole) {
     return (

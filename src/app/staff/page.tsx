@@ -1,9 +1,11 @@
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc } from "firebase/firestore"
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -36,9 +38,16 @@ import { toast } from "@/hooks/use-toast"
 import { useDoc } from "@/firebase/firestore/use-doc"
 
 export default function StaffPage() {
-  const { user } = useUser()
+  const { user, isUserLoading: isAuthLoading } = useUser()
   const firestore = useFirestore()
+  const router = useRouter()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, isAuthLoading, router])
 
   // Admin check - gated by user presence
   const adminRef = useMemoFirebase(() => {
@@ -78,7 +87,7 @@ export default function StaffPage() {
     setIsDialogOpen(false)
   }
 
-  if (isAdminLoading || isStaffLoading) {
+  if (isAuthLoading || isAdminLoading || isStaffLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -87,15 +96,7 @@ export default function StaffPage() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="text-center py-20 space-y-4">
-        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
-        <h2 className="text-3xl font-black uppercase tracking-tighter">Authentication Required</h2>
-        <p className="text-muted-foreground font-bold">Please sign in from the dashboard to manage staff records.</p>
-      </div>
-    )
-  }
+  if (!user) return null
 
   if (!adminRole) {
     return (

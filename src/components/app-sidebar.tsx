@@ -7,10 +7,7 @@ import {
   Package,
   Truck,
   FileText,
-  Settings,
-  ShieldCheck,
   History,
-  AlertCircle
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -68,7 +65,6 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex items-center px-6">
         <div className="flex items-center gap-2 font-headline font-bold text-xl text-primary">
-          <ShieldCheck className="h-8 w-8 text-accent" />
           <span className="group-data-[collapsible=icon]:hidden">Generals Plumbing</span>
         </div>
       </SidebarHeader>

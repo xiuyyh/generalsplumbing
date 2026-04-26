@@ -59,13 +59,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased font-medium;
-    font-size: 1.05rem;
+    @apply bg-background text-foreground font-body antialiased font-bold;
+    font-size: 1.1rem;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight;
+    @apply font-black tracking-tight;
   }
   button {
-    @apply font-bold uppercase tracking-wider;
+    @apply font-black uppercase tracking-wider;
   }
 }

@@ -105,13 +105,13 @@ export default function DispatchPage() {
     if (!firestore || !selectedDispatch) return
     
     const targetId = selectedDispatch.id;
-    deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", targetId))
-    
     setIsDeleteDialogOpen(false)
+
     setTimeout(() => {
+      deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", targetId))
       toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
       setSelectedDispatch(null)
-    }, 100)
+    }, 300)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -286,15 +286,32 @@ export default function DispatchPage() {
         </Card>
       </div>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false)
+          setTimeout(() => setSelectedDispatch(null), 300)
+        } else {
+          setIsDeleteDialogOpen(true)
+        }
+      }}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE LOG</AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.</AlertDialogDescription>
+            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">
+              Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteDispatch} className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs">CONFIRM DELETE</AlertDialogAction>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteDispatch()
+              }}
+              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
+            >
+              CONFIRM DELETE
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

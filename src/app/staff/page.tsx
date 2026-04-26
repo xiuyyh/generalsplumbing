@@ -99,9 +99,7 @@ export default function StaffPage() {
     addDocumentNonBlocking(collection(firestore, "staffMembers"), staffData)
     
     setIsAddDialogOpen(false)
-    setTimeout(() => {
-      toast({ title: "Staff Created", description: "Personnel added to registry." })
-    }, 100)
+    toast({ title: "Staff Created", description: "Personnel added to registry." })
   }
 
   const handleUpdateStaff = (e: React.FormEvent<HTMLFormElement>) => {
@@ -118,24 +116,26 @@ export default function StaffPage() {
       phoneNumber: formData.get("phoneNumber") as string,
     }
 
-    updateDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id), updatedData)
-    
+    const staffId = selectedStaff.id
     setIsEditDialogOpen(false)
+
     setTimeout(() => {
+      updateDocumentNonBlocking(doc(firestore, "staffMembers", staffId), updatedData)
       toast({ title: "Staff Updated", description: "Record modified successfully." })
       setSelectedStaff(null)
-    }, 100)
+    }, 300)
   }
 
   const handleDeleteStaff = () => {
     if (!firestore || !selectedStaff) return
-    deleteDocumentNonBlocking(doc(firestore, "staffMembers", selectedStaff.id))
-    
+    const staffId = selectedStaff.id
     setIsDeleteDialogOpen(false)
+
     setTimeout(() => {
+      deleteDocumentNonBlocking(doc(firestore, "staffMembers", staffId))
       toast({ variant: "destructive", title: "Record Deleted", description: "Staff member removed from system." })
       setSelectedStaff(null)
-    }, 100)
+    }, 300)
   }
 
   if (isAuthLoading || !user) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -214,7 +214,14 @@ export default function StaffPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsEditDialogOpen(false)
+          setTimeout(() => setSelectedStaff(null), 300)
+        } else {
+          setIsEditDialogOpen(true)
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px] border-4 border-black rounded-none">
           <form onSubmit={handleUpdateStaff}>
             <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Edit Staff Record</DialogTitle></DialogHeader>
@@ -233,15 +240,32 @@ export default function StaffPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false)
+          setTimeout(() => setSelectedStaff(null), 300)
+        } else {
+          setIsDeleteDialogOpen(true)
+        }
+      }}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> Confirm Termination</AlertDialogTitle>
-            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">Are you sure you want to remove <span className="underline">{selectedStaff?.firstName} {selectedStaff?.lastName}</span> from the active staff registry? This action is permanent.</AlertDialogDescription>
+            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">
+              Are you sure you want to remove <span className="underline">{selectedStaff?.firstName || "this worker"} {selectedStaff?.lastName || ""}</span> from the active staff registry? This action is permanent.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteStaff} className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs">TERMINATE</AlertDialogAction>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteStaff()
+              }}
+              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
+            >
+              TERMINATE
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

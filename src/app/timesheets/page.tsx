@@ -88,14 +88,14 @@ export default function TimesheetsPage() {
     if (!firestore || !selectedEntry) return
     
     const targetId = selectedEntry.id;
-    deleteDocumentNonBlocking(doc(firestore, "timeEntries", targetId))
-    
     setIsDeleteDialogOpen(false)
     setIsDetailsOpen(false)
+
     setTimeout(() => {
+      deleteDocumentNonBlocking(doc(firestore, "timeEntries", targetId))
       toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
       setSelectedEntry(null)
-    }, 100)
+    }, 300)
   }
 
   return (
@@ -171,31 +171,46 @@ export default function TimesheetsPage() {
         </Card>
       </div>
 
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDetailsOpen(false)
+          setTimeout(() => setSelectedEntry(null), 300)
+        } else {
+          setIsDetailsOpen(true)
+        }
+      }}>
         <DialogContent className="border-4 border-black rounded-none max-w-sm sm:max-w-md">
           <DialogHeader className="border-b-2 border-black pb-4">
             <DialogTitle className="text-2xl font-black uppercase">Shift Summary</DialogTitle>
           </DialogHeader>
-          {selectedEntry && (
-            <div className="py-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><User className="h-3 w-3 inline mr-1" /> Technician</p><p className="font-black text-sm uppercase">{selectedEntry.staffName}</p></div>
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><CalendarDays className="h-3 w-3 inline mr-1" /> Date</p><p className="font-black text-sm uppercase">{new Date(selectedEntry.clockInTime).toLocaleDateString()}</p></div>
-              </div>
-              <div className="p-4 border-2 border-black bg-muted/20 grid grid-cols-2 gap-4">
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Start</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">End</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</p></div>
-              </div>
-              <div className="flex items-center justify-between pt-4 border-t-2 border-black">
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>
-                <Button onClick={() => setIsDeleteDialogOpen(true)} variant="destructive" className="rounded-none border-2 border-black font-black uppercase text-xs px-4 h-12"><Trash2 className="h-4 w-4 mr-2" /> DELETE LOG</Button>
-              </div>
-            </div>
-          )}
+          <div className="py-6 space-y-6">
+            {selectedEntry && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><User className="h-3 w-3 inline mr-1" /> Technician</p><p className="font-black text-sm uppercase">{selectedEntry.staffName || "Unknown"}</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><CalendarDays className="h-3 w-3 inline mr-1" /> Date</p><p className="font-black text-sm uppercase">{new Date(selectedEntry.clockInTime).toLocaleDateString()}</p></div>
+                </div>
+                <div className="p-4 border-2 border-black bg-muted/20 grid grid-cols-2 gap-4">
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Start</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">End</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</p></div>
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t-2 border-black">
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>
+                  <Button onClick={() => setIsDeleteDialogOpen(true)} variant="destructive" className="rounded-none border-2 border-black font-black uppercase text-xs px-4 h-12"><Trash2 className="h-4 w-4 mr-2" /> DELETE LOG</Button>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false)
+        } else {
+          setIsDeleteDialogOpen(true)
+        }
+      }}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> Confirm Deletion</AlertDialogTitle>
@@ -203,7 +218,15 @@ export default function TimesheetsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs">DELETE</AlertDialogAction>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteEntry()
+              }} 
+              className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs"
+            >
+              DELETE
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

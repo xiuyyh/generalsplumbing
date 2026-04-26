@@ -113,12 +113,10 @@ export default function InventoryPage() {
     addDocumentNonBlocking(collection(firestore, "inventoryItems"), newItem)
     
     setIsAddDialogOpen(false)
-    setTimeout(() => {
-      toast({
-        title: "Item Created",
-        description: `${newItem.name} added to catalog.`,
-      })
-    }, 100)
+    toast({
+      title: "Item Created",
+      description: `${newItem.name} added to catalog.`,
+    })
   }
 
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -135,16 +133,16 @@ export default function InventoryPage() {
     }
 
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
-    updateDocumentNonBlocking(itemRef, updatedData)
-    
     setIsEditDialogOpen(false)
+    
     setTimeout(() => {
+      updateDocumentNonBlocking(itemRef, updatedData)
       toast({
         title: "Item Updated",
         description: `${updatedData.name} record saved.`,
       })
       setSelectedItem(null)
-    }, 100)
+    }, 300)
   }
 
   const handleRestock = () => {
@@ -153,36 +151,38 @@ export default function InventoryPage() {
     const newStock = (selectedItem.currentStock || 0) + restockAmount
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
     
-    updateDocumentNonBlocking(itemRef, {
-      currentStock: newStock
-    })
-
     setIsRestockDialogOpen(false)
+
     setTimeout(() => {
+      updateDocumentNonBlocking(itemRef, {
+        currentStock: newStock
+      })
       toast({
         title: "Stock Updated",
         description: `Added ${restockAmount} to ${selectedItem.name}.`,
       })
       setRestockAmount(0)
       setSelectedItem(null)
-    }, 100)
+    }, 300)
   }
 
   const handleDelete = () => {
     if (!firestore || !selectedItem) return
 
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
-    deleteDocumentNonBlocking(itemRef)
+    const itemName = selectedItem.name
     
     setIsDeleteDialogOpen(false)
+
     setTimeout(() => {
+      deleteDocumentNonBlocking(itemRef)
       toast({
         variant: "destructive",
         title: "Item Deleted",
-        description: `${selectedItem.name} removed from catalog.`,
+        description: `${itemName} removed from catalog.`,
       })
       setSelectedItem(null)
-    }, 100)
+    }, 300)
   }
 
   if (isUserLoading || !user) {
@@ -352,13 +352,20 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsEditDialogOpen(false)
+          setTimeout(() => setSelectedItem(null), 300)
+        } else {
+          setIsEditDialogOpen(true)
+        }
+      }}>
         <DialogContent className="border-4 border-black rounded-none sm:max-w-[500px]">
           <form onSubmit={handleUpdateItem}>
             <DialogHeader>
               <DialogTitle className="text-xl font-black uppercase">Edit Inventory Item</DialogTitle>
               <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
-                Update records for: {selectedItem?.name}
+                Update records for: {selectedItem?.name || "Target Item"}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -388,12 +395,19 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
+      <Dialog open={isRestockDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsRestockDialogOpen(false)
+          setTimeout(() => setSelectedItem(null), 300)
+        } else {
+          setIsRestockDialogOpen(true)
+        }
+      }}>
         <DialogContent className="border-4 border-black rounded-none sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="text-xl font-black uppercase">Re-stock Material</DialogTitle>
             <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
-              Update inventory for: <span className="text-black">{selectedItem?.name}</span>
+              Update inventory for: <span className="text-black">{selectedItem?.name || "Target Item"}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-4">
@@ -424,20 +438,30 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false)
+          setTimeout(() => setSelectedItem(null), 300)
+        } else {
+          setIsDeleteDialogOpen(true)
+        }
+      }}>
         <AlertDialogContent className="border-4 border-black rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-black uppercase flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE RECORD
             </AlertDialogTitle>
             <AlertDialogDescription className="font-bold text-black uppercase text-xs">
-              Are you sure you want to delete <span className="underline">{selectedItem?.name}</span>? This action is permanent and will remove the item from all inventory tracking.
+              Are you sure you want to delete <span className="underline">{selectedItem?.name || "this item"}</span>? This action is permanent and will remove the item from all inventory tracking.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="border-2 border-black rounded-none font-black uppercase text-xs">ABORT</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault()
+                handleDelete()
+              }}
               className="bg-destructive text-white border-2 border-black rounded-none font-black uppercase text-xs hover:bg-destructive/90"
             >
               CONFIRM DELETE

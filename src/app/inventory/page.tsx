@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, doc } from "firebase/firestore"
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
   Card, 
@@ -25,10 +27,10 @@ import {
   Search, 
   Filter, 
   Package, 
-  ArrowUpDown, 
   MoreHorizontal,
   Edit2,
-  Loader2
+  Loader2,
+  TrendingUp
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -39,33 +41,90 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-const inventoryItems = [
-  { id: "INV-001", name: "Copper Elbow 1/2\"", category: "Fittings", stock: 4, min: 10, unit: "pcs" },
-  { id: "INV-002", name: "PVC Pipe 1.5\"", category: "Pipes", stock: 45, min: 20, unit: "ft" },
-  { id: "INV-003", name: "Plumbers Putty", category: "Consumables", stock: 12, min: 15, unit: "tubs" },
-  { id: "INV-004", name: "PEX Crimp Tool", category: "Tools", stock: 2, min: 1, unit: "unit" },
-  { id: "INV-005", name: "Teflon Tape", category: "Consumables", stock: 30, min: 10, unit: "rolls" },
-  { id: "INV-006", name: "Ball Valve 3/4\"", category: "Valves", stock: 8, min: 12, unit: "pcs" },
-  { id: "INV-007", name: "Solder Lead-Free", category: "Consumables", stock: 15, min: 10, unit: "spools" },
-]
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
 
 export default function InventoryPage() {
   const { user, isUserLoading } = useUser()
+  const firestore = useFirestore()
   const router = useRouter()
+  
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<any>(null)
+  const [restockAmount, setRestockAmount] = useState<number>(0)
 
+  // Redirect if not logged in
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push("/auth")
     }
   }, [user, isUserLoading, router])
 
-  const filteredItems = inventoryItems.filter(item => 
+  // Fetch inventory from Firestore
+  const inventoryQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "inventoryItems")
+  }, [firestore, user])
+  const { data: inventoryItems, isLoading } = useCollection(inventoryQuery)
+
+  const filteredItems = inventoryItems?.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) || []
+
+  const handleCreateItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!firestore) return
+
+    const formData = new FormData(e.currentTarget)
+    const newItem = {
+      name: formData.get("name") as string,
+      sku: formData.get("sku") as string,
+      unitOfMeasure: formData.get("unitOfMeasure") as string,
+      currentStock: Number(formData.get("currentStock")),
+      reorderThreshold: Number(formData.get("reorderThreshold")),
+      description: formData.get("description") as string,
+      pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
+    }
+
+    addDocumentNonBlocking(collection(firestore, "inventoryItems"), newItem)
+    toast({
+      title: "Item Created",
+      description: `${newItem.name} added to catalog.`,
+    })
+    setIsAddDialogOpen(false)
+  }
+
+  const handleRestock = () => {
+    if (!firestore || !selectedItem || restockAmount <= 0) return
+
+    const newStock = (selectedItem.currentStock || 0) + restockAmount
+    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
+    
+    updateDocumentNonBlocking(itemRef, {
+      currentStock: newStock
+    })
+
+    toast({
+      title: "Stock Updated",
+      description: `Added ${restockAmount} ${selectedItem.unitOfMeasure} to ${selectedItem.name}.`,
+    })
+    setIsRestockDialogOpen(false)
+    setRestockAmount(0)
+    setSelectedItem(null)
+  }
 
   if (isUserLoading || !user) {
     return (
@@ -81,24 +140,74 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tighter">Inventory Catalog</h1>
-          <p className="text-muted-foreground text-xs uppercase font-bold">Master material list</p>
+          <p className="text-muted-foreground text-[10px] uppercase font-black tracking-widest">Master material list</p>
         </div>
-        <Button className="bg-black text-white rounded-none h-10 px-6 font-black uppercase text-xs">
-          <Plus className="mr-2 h-4 w-4" /> Add New Item
-        </Button>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-black text-white rounded-none h-10 px-6 font-black uppercase text-xs border-2 border-black hover:bg-black/90">
+              <Plus className="mr-2 h-4 w-4" /> Add New Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="border-4 border-black rounded-none sm:max-w-[500px]">
+            <form onSubmit={handleCreateItem}>
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black uppercase">Create Inventory Item</DialogTitle>
+                <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
+                  Register a new part or supply in the system.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-xs font-black uppercase">Item Name</Label>
+                  <Input id="name" name="name" required className="border-2 border-black rounded-none h-10 font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sku" className="text-xs font-black uppercase">SKU / Part #</Label>
+                    <Input id="sku" name="sku" required className="border-2 border-black rounded-none h-10 font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unitOfMeasure" className="text-xs font-black uppercase">Unit (e.g. ft, pcs)</Label>
+                    <Input id="unitOfMeasure" name="unitOfMeasure" placeholder="pcs" required className="border-2 border-black rounded-none h-10 font-bold" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentStock" className="text-xs font-black uppercase">Initial Stock</Label>
+                    <Input id="currentStock" name="currentStock" type="number" defaultValue="0" required className="border-2 border-black rounded-none h-10 font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
+                    <Input id="reorderThreshold" name="reorderThreshold" type="number" defaultValue="5" required className="border-2 border-black rounded-none h-10 font-bold" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="text-xs font-black uppercase">Description</Label>
+                  <Textarea id="description" name="description" required className="border-2 border-black rounded-none font-bold" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" className="w-full bg-black text-white font-black h-12 rounded-none text-sm uppercase border-2 border-black">
+                  REGISTER ITEM
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex flex-col md:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input 
-            placeholder="Search items..." 
-            className="pl-10 h-10 w-full border-2 border-black rounded-none bg-white text-xs font-bold" 
+            placeholder="Search catalog by name or SKU..." 
+            className="pl-10 h-10 w-full border-2 border-black rounded-none bg-white text-xs font-bold focus:outline-none focus:ring-0" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="border-2 border-black h-10 rounded-none text-xs">
+        <Button variant="outline" className="border-2 border-black h-10 rounded-none text-xs font-black uppercase">
           <Filter className="mr-2 h-4 w-4" /> Filter
         </Button>
       </div>
@@ -108,61 +217,108 @@ export default function InventoryPage() {
           <Table>
             <TableHeader className="bg-black">
               <TableRow className="hover:bg-black border-none">
-                <TableHead className="text-white font-black uppercase text-[10px]">ID</TableHead>
+                <TableHead className="text-white font-black uppercase text-[10px]">SKU</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px]">Item</TableHead>
-                <TableHead className="text-white font-black uppercase text-[10px]">Category</TableHead>
-                <TableHead className="text-white font-black uppercase text-[10px] text-center">Stock</TableHead>
+                <TableHead className="text-white font-black uppercase text-[10px] text-center">In Stock</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px]">Status</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.map((item) => (
-                <TableRow key={item.id} className="border-b border-black/10 hover:bg-muted/50">
-                  <TableCell className="font-mono text-[10px] text-muted-foreground">{item.id}</TableCell>
-                  <TableCell className="font-bold text-xs uppercase">{item.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-black text-[9px] uppercase rounded-none px-1.5">{item.category}</Badge>
-                  </TableCell>
-                  <TableCell className="text-center font-mono font-black text-xs">
-                    {item.stock} <span className="text-[8px] text-muted-foreground font-normal">{item.unit}</span>
-                  </TableCell>
-                  <TableCell>
-                    {item.stock <= item.min ? (
-                      <Badge variant="destructive" className="animate-pulse rounded-none text-[8px] px-1 py-0">LOW</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-black border-black bg-white rounded-none text-[8px] px-1 py-0">OK</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-none border-2 border-black">
-                        <DropdownMenuItem className="text-xs font-black uppercase">
-                          <Edit2 className="mr-2 h-3 w-3" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs font-black uppercase">
-                          <Package className="mr-2 h-3 w-3" /> Stock
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredItems.map((item) => (
+                  <TableRow key={item.id} className="border-b border-black/10 hover:bg-muted/30">
+                    <TableCell className="font-mono text-[10px] text-muted-foreground uppercase">{item.sku}</TableCell>
+                    <TableCell className="font-black text-xs uppercase">{item.name}</TableCell>
+                    <TableCell className="text-center font-mono font-black text-xs">
+                      {item.currentStock} <span className="text-[8px] text-muted-foreground font-black uppercase">{item.unitOfMeasure}</span>
+                    </TableCell>
+                    <TableCell>
+                      {item.currentStock <= (item.reorderThreshold || 0) ? (
+                        <Badge variant="destructive" className="animate-pulse rounded-none text-[8px] px-1 py-0 font-black">LOW STOCK</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-black border-2 border-black bg-white rounded-none text-[8px] px-1 py-0 font-black">OPTIMAL</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-black hover:text-white rounded-none transition-colors">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-none border-2 border-black bg-white p-1">
+                          <DropdownMenuItem className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer">
+                            <Edit2 className="mr-2 h-3 w-3" /> Edit Item
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer"
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setIsRestockDialogOpen(true)
+                            }}
+                          >
+                            <TrendingUp className="mr-2 h-3 w-3" /> Re-stock
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
-          {filteredItems.length === 0 && (
+          {!isLoading && filteredItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
               <Package className="h-8 w-8 opacity-20 mb-2" />
-              <p className="text-[10px] font-black uppercase">No results found.</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">No matching items found in catalog.</p>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Restock Dialog */}
+      <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
+        <DialogContent className="border-4 border-black rounded-none sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase">Re-stock Material</DialogTitle>
+            <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
+              Update inventory for: <span className="text-black">{selectedItem?.name}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount" className="text-xs font-black uppercase">Quantity to Add</Label>
+              <Input 
+                id="amount" 
+                type="number" 
+                min="1"
+                value={restockAmount}
+                onChange={(e) => setRestockAmount(Number(e.target.value))}
+                className="border-2 border-black rounded-none h-12 font-black text-lg text-center"
+              />
+              <p className="text-[9px] font-black uppercase text-muted-foreground text-center">
+                New stock will be: { (selectedItem?.currentStock || 0) + restockAmount } {selectedItem?.unitOfMeasure}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleRestock}
+              disabled={restockAmount <= 0}
+              className="w-full bg-black text-white font-black h-12 rounded-none text-sm uppercase border-2 border-black disabled:opacity-30"
+            >
+              CONFIRM RE-STOCK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

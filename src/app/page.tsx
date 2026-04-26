@@ -44,7 +44,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-foreground">Generals Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back. Here's an overview of today's operations.</p>
+          <p className="text-muted-foreground">Welcome back.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" asChild>

@@ -66,25 +66,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-5xl font-black text-foreground uppercase tracking-tighter">Command Center</h1>
+          <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter">Command Center</h1>
           <p className="text-muted-foreground font-black uppercase text-xs tracking-[0.3em]">Operational Status: Online</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" asChild className="border-4 border-black font-black h-12 px-6 rounded-none">
             <Link href="/analytics"><History className="mr-2 h-4 w-4" /> Reports</Link>
           </Button>
-          <Button size="sm" asChild className="bg-black text-white font-black h-12 px-6 rounded-none shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]">
+          <Button size="sm" asChild className="bg-black text-white font-black h-12 px-6 rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)]">
             <Link href="/dispatch"><Truck className="mr-2 h-4 w-4" /> Dispatch</Link>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="border-4 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] rounded-none">
+          <Card key={stat.title} className="border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-none">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -100,16 +100,16 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader className="border-b-4 border-black">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <CardHeader className="border-b-4 border-black py-4">
             <CardTitle className="text-2xl font-black uppercase">Live Logs</CardTitle>
             <CardDescription className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground">Real-time operational activity</CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-6">
+          <CardContent className="pt-4">
+            <div className="space-y-4">
               {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-4 border-2 border-transparent hover:border-black hover:bg-muted/30 transition-all">
+                <div key={activity.id} className="flex items-start gap-4 p-3 border-2 border-transparent hover:border-black hover:bg-muted/30 transition-all">
                   <div className="mt-1">
                     <div className="h-4 w-4 bg-black" />
                   </div>
@@ -128,21 +128,21 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <Button variant="ghost" className="w-full mt-6 text-black font-black h-12 uppercase tracking-widest border-2 border-black rounded-none hover:bg-black hover:text-white transition-colors" asChild>
+            <Button variant="ghost" className="w-full mt-4 text-black font-black h-12 uppercase tracking-widest border-2 border-black rounded-none hover:bg-black hover:text-white transition-colors" asChild>
               <Link href="/timesheets">Full Timesheet Archive <ArrowUpRight className="ml-1 h-4 w-4" /></Link>
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader className="border-b-4 border-black">
+        <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <CardHeader className="border-b-4 border-black py-4">
             <CardTitle className="text-2xl font-black uppercase">Stock Alerts</CardTitle>
             <CardDescription className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground">Critial inventory status</CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-8">
+          <CardContent className="pt-4">
+            <div className="space-y-6">
               {lowStock.map((item) => (
-                <div key={item.name} className="flex flex-col gap-3">
+                <div key={item.name} className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-black uppercase tracking-tight">{item.name}</span>
                     <Badge variant="destructive" className="font-black rounded-none px-4 py-1 text-sm">{item.stock}</Badge>
@@ -160,7 +160,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <Button className="w-full mt-10 border-4 border-black font-black uppercase h-14 rounded-none text-black hover:bg-black hover:text-white transition-colors" variant="outline" asChild>
+            <Button className="w-full mt-6 border-4 border-black font-black uppercase h-14 rounded-none text-black hover:bg-black hover:text-white transition-colors" variant="outline" asChild>
               <Link href="/inventory">Audit Inventory</Link>
             </Button>
           </CardContent>

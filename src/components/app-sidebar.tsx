@@ -87,7 +87,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-4 border-black">
-      <SidebarHeader className="h-16 flex items-center px-6 border-b-4 border-black bg-black text-white shrink-0 overflow-hidden transition-all">
+      <SidebarHeader className="h-16 flex items-center px-4 border-b-4 border-black bg-black text-white shrink-0 overflow-hidden transition-all">
         <div className="flex items-center gap-3 font-black text-xl uppercase tracking-tighter whitespace-nowrap">
           <div className="h-6 w-6 bg-white shrink-0" />
           <span className="group-data-[collapsible=icon]:hidden">Generals Plumbing</span>
@@ -96,7 +96,7 @@ export function AppSidebar() {
       
       <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="font-black uppercase text-[10px] tracking-widest text-muted-foreground mb-4 px-4 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className="font-black uppercase text-[10px] tracking-widest text-muted-foreground mb-2 px-4 group-data-[collapsible=icon]:hidden">
             Operations
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,7 +127,7 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={handleLogout}
               tooltip="Terminate Session"
-              className="w-full h-14 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+              className="w-full h-14 flex items-center justify-start gap-3 px-4 font-black uppercase text-xs tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
               <LogOut className="h-6 w-6 shrink-0" />
               <span className="group-data-[collapsible=icon]:hidden">Terminate Session</span>

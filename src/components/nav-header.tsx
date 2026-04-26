@@ -16,7 +16,7 @@ export function NavHeader() {
   if (!user || pathname === "/auth") return null;
 
   return (
-    <header className="flex h-16 items-center border-b-4 border-black px-4 md:px-8 bg-white shrink-0 sticky top-0 z-30">
+    <header className="flex h-16 items-center border-b-4 border-black px-4 bg-white shrink-0 sticky top-0 z-30">
       <SidebarTrigger className="-ml-1 mr-4 border-4 border-black rounded-none h-10 w-10 bg-white hover:bg-black hover:text-white transition-colors" />
       <div className="flex items-center gap-2">
         <div className="h-6 w-6 bg-black" />

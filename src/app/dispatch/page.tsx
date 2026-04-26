@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { collection, doc, writeBatch, serverTimestamp } from "firebase/firestore"
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { collection, doc, writeBatch, serverTimestamp, orderBy, query } from "firebase/firestore"
+import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
   CardContent, 
@@ -13,6 +13,14 @@ import {
   CardDescription,
   CardFooter
 } from "@/components/ui/card"
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -23,14 +31,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin } from "lucide-react"
+import { Truck, Plus, Trash2, ClipboardList, Send, Loader2, MapPin, History, AlertTriangle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedDispatch, setSelectedDispatch] = useState<any>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [items, setItems] = useState([
     { id: Date.now(), inventoryItemId: "", quantity: 1 }
   ])
@@ -41,7 +61,6 @@ export default function DispatchPage() {
     }
   }, [user, isUserLoading, router])
 
-  // Fetch data
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return collection(firestore, "inventoryItems")
@@ -53,6 +72,12 @@ export default function DispatchPage() {
     return collection(firestore, "staffMembers")
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
+
+  const recentDispatchesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return query(collection(firestore, "inventoryDispatches"), orderBy("dispatchDateTime", "desc"))
+  }, [firestore, user])
+  const { data: dispatches, isLoading: isDispLoading } = useCollection(recentDispatchesQuery)
 
   const addItemRow = () => {
     setItems([...items, { id: Date.now(), inventoryItemId: "", quantity: 1 }])
@@ -68,6 +93,14 @@ export default function DispatchPage() {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
   }
 
+  const handleDeleteDispatch = () => {
+    if (!firestore || !selectedDispatch) return
+    deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", selectedDispatch.id))
+    toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
+    setIsDeleteDialogOpen(false)
+    setSelectedDispatch(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!firestore || !user || isSubmitting) return
@@ -76,15 +109,13 @@ export default function DispatchPage() {
     const formData = new FormData(e.currentTarget)
     const assignedToStaffMemberId = formData.get("assignedTo") as string
     const purpose = formData.get("purpose") as string
+    const deliveryAddress = formData.get("deliveryAddress") as string
     const notes = formData.get("notes") as string
 
     try {
-      // Use batch for atomic updates
       const batch = writeBatch(firestore)
-
       for (const item of items) {
         if (!item.inventoryItemId) continue
-
         const dispatchRef = doc(collection(firestore, "inventoryDispatches"))
         const itemRef = doc(firestore, "inventoryItems", item.inventoryItemId)
         const inventoryItem = inventoryItems?.find(i => i.id === item.inventoryItemId)
@@ -93,183 +124,127 @@ export default function DispatchPage() {
           inventoryItemId: item.inventoryItemId,
           quantity: Number(item.quantity),
           dispatchDateTime: new Date().toISOString(),
-          dispatchedByStaffMemberId: "ADMIN", // Placeholder or fetch linked staff ID
+          dispatchedByStaffMemberId: "ADMIN",
           assignedToStaffMemberId,
           purpose,
+          deliveryAddress,
           notes,
           createdAt: serverTimestamp()
         })
 
-        // Decrement stock
         if (inventoryItem) {
           batch.update(itemRef, {
             currentStock: (inventoryItem.currentStock || 0) - Number(item.quantity)
           })
         }
       }
-
       await batch.commit()
-
-      toast({
-        title: "Dispatch Recorded",
-        description: "Inventory levels updated and logs created.",
-      })
-      router.push("/inventory")
+      toast({ title: "Dispatch Recorded", description: "Inventory updated." })
+      setItems([{ id: Date.now(), inventoryItemId: "", quantity: 1 }])
     } catch (error) {
-      console.error("Dispatch error:", error)
-      toast({
-        variant: "destructive",
-        title: "Error Recording Dispatch",
-        description: "An unexpected error occurred. Please try again.",
-      })
+      toast({ variant: "destructive", title: "Error", description: "Failed to record dispatch." })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Access...</p>
-      </div>
-    )
-  }
+  if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black uppercase tracking-tighter">New Dispatch Log</h1>
-        <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">Record material outflow and destination</p>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <div>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">Inventory Dispatch</h1>
+        <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Administrative Material Outflow Log</p>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <Card className="lg:col-span-7 border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            <CardHeader className="border-b-2 border-black bg-muted/30">
-              <CardTitle className="text-xl font-black uppercase flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Material List
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="grid grid-cols-12 gap-4 mb-2">
-                <div className="col-span-7 md:col-span-8">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">1. Item Specification</Label>
-                </div>
-                <div className="col-span-3 md:col-span-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">2. Qty</Label>
-                </div>
-              </div>
-              
-              {items.map((row) => (
-                <div key={row.id} className="grid grid-cols-12 gap-4 items-center">
-                  <div className="col-span-7 md:col-span-8">
-                    <Select 
-                      required 
-                      onValueChange={(val) => handleItemChange(row.id, "inventoryItemId", val)}
-                    >
-                      <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
-                        <SelectValue placeholder="Select item..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {inventoryItems?.map((item) => (
-                          <SelectItem key={item.id} value={item.id} className="font-bold">
-                            {item.name} ({item.currentStock} {item.unitOfMeasure} avail.)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-3 md:col-span-2">
-                    <Input 
-                      type="number" 
-                      min="1" 
-                      defaultValue="1" 
-                      onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)}
-                      className="h-12 border-2 border-black rounded-none font-black text-center" 
-                    />
-                  </div>
-                  <div className="col-span-2 flex justify-end">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-destructive hover:text-white hover:bg-destructive rounded-none border-2 border-transparent hover:border-black transition-all"
-                      onClick={() => removeItemRow(row.id)}
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full h-12 mt-2 border-2 border-black border-dashed rounded-none font-black uppercase hover:bg-muted" 
-                onClick={addItemRow}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Line Item
-              </Button>
-            </CardContent>
-          </Card>
-
-          <div className="lg:col-span-5 space-y-8">
-            <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-              <CardHeader className="border-b-2 border-black bg-muted/30">
-                <CardTitle className="text-xl font-black uppercase">Assignment Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="space-y-2">
-                  <Label className="font-black uppercase text-xs">Technician</Label>
-                  <Select name="assignedTo" required>
-                    <SelectTrigger className="h-12 border-2 border-black rounded-none font-bold">
-                      <SelectValue placeholder="Choose personnel..." />
-                    </SelectTrigger>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <Card className="lg:col-span-7 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+          <CardHeader className="bg-muted/20 border-b-2 border-black py-4">
+            <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Material List</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            {items.map((row) => (
+              <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-8">
+                  <Select required onValueChange={(val) => handleItemChange(row.id, "inventoryItemId", val)}>
+                    <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold"><SelectValue placeholder="Select item..." /></SelectTrigger>
                     <SelectContent>
-                      {staffMembers?.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id} className="font-bold">
-                          {staff.firstName} {staff.lastName}
-                        </SelectItem>
+                      {inventoryItems?.map((item) => (
+                        <SelectItem key={item.id} value={item.id} className="font-bold">{item.name} ({item.currentStock} {item.unitOfMeasure} left)</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="font-black uppercase text-xs">Job Reference / Purpose</Label>
-                  <Input name="purpose" placeholder="e.g. Job #4421 - Plumbing Restock" required className="h-12 border-2 border-black rounded-none font-bold" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-black uppercase text-xs">Internal Notes</Label>
-                  <Input name="notes" placeholder="Optional notes..." className="h-12 border-2 border-black rounded-none font-bold" />
-                </div>
-              </CardContent>
-              <CardFooter className="pt-2">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="w-full h-16 bg-black text-white rounded-none font-black text-lg shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] hover:bg-black/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-                >
-                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6 mr-3" /> : <Send className="mr-3 h-6 w-6" />} RECORD DISPATCH
-                </Button>
-              </CardFooter>
-            </Card>
-
-            <div className="p-6 border-2 border-black bg-black text-white rounded-none flex items-center gap-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]">
-              <div className="p-2 bg-white/10 rounded-none border border-white/20">
-                <Truck className="h-6 w-6" />
+                <div className="col-span-3"><Input type="number" min="1" defaultValue="1" onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)} className="h-10 border-2 border-black rounded-none font-black text-center" /></div>
+                <div className="col-span-1"><Button type="button" variant="ghost" size="icon" onClick={() => removeItemRow(row.id)} className="text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black transition-all"><Trash2 className="h-4 w-4" /></Button></div>
               </div>
-              <div className="space-y-1">
-                <h4 className="font-black uppercase text-sm tracking-tight">Cloud Sync Active</h4>
-                <p className="text-[10px] font-bold uppercase text-white/60">Stock levels update in real-time across all terminals.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+            ))}
+            <Button type="button" variant="outline" onClick={addItemRow} className="w-full h-10 border-2 border-black border-dashed rounded-none font-black uppercase"><Plus className="mr-2 h-4 w-4" /> Add Item</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-5 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+          <CardHeader className="bg-muted/20 border-b-2 border-black py-4"><CardTitle className="text-xl font-black uppercase">Dispatch Context</CardTitle></CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Assigned Technician</Label><Select name="assignedTo" required><SelectTrigger className="h-10 border-2 border-black rounded-none font-bold"><SelectValue placeholder="Choose personnel..." /></SelectTrigger><SelectContent>{staffMembers?.map((staff) => (<SelectItem key={staff.id} value={staff.id} className="font-bold">{staff.firstName} {staff.lastName}</SelectItem>))}</SelectContent></Select></div>
+            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Reference / Job #</Label><Input name="purpose" required className="h-10 border-2 border-black rounded-none font-bold" /></div>
+            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Delivery Address</Label><Input name="deliveryAddress" required className="h-10 border-2 border-black rounded-none font-bold" /></div>
+            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Internal Notes</Label><Input name="notes" className="h-10 border-2 border-black rounded-none font-bold" /></div>
+            <Button type="submit" disabled={isSubmitting} className="w-full h-14 bg-black text-white rounded-none font-black text-lg uppercase mt-2">{isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />} AUTHORIZE DISPATCH</Button>
+          </CardContent>
+        </Card>
       </form>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2"><History className="h-5 w-5" /><h2 className="text-2xl font-black uppercase">Recent Activity</h2></div>
+        <Card className="border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-black">
+                <TableRow className="hover:bg-black">
+                  <TableHead className="text-white font-black uppercase text-xs">Item</TableHead>
+                  <TableHead className="text-white font-black uppercase text-xs">Technician</TableHead>
+                  <TableHead className="text-white font-black uppercase text-xs hidden md:table-cell">Address</TableHead>
+                  <TableHead className="text-white font-black uppercase text-xs text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isDispLoading ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+                ) : (
+                  dispatches?.map((dispatch) => {
+                    const item = inventoryItems?.find(i => i.id === dispatch.inventoryItemId)
+                    const staff = staffMembers?.find(s => s.id === dispatch.assignedToStaffMemberId)
+                    return (
+                      <TableRow key={dispatch.id} className="border-b-2 border-black/10 hover:bg-muted/30">
+                        <TableCell className="font-black uppercase text-xs">{item?.name} x{dispatch.quantity}</TableCell>
+                        <TableCell className="font-bold uppercase text-[10px]">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
+                        <TableCell className="hidden md:table-cell text-[10px] font-bold uppercase"><MapPin className="h-3 w-3 inline mr-1" />{dispatch.deliveryAddress || "Not set"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="icon" variant="ghost" onClick={() => { setSelectedDispatch(dispatch); setIsDeleteDialogOpen(true); }} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="border-4 border-black rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> TERMINATE LOG</AlertDialogTitle>
+            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDispatch} className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs">CONFIRM DELETE</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

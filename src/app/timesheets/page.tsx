@@ -1,9 +1,9 @@
-
 "use client"
 
 import { useState } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy } from "firebase/firestore"
+import { collection, query, orderBy, doc } from "firebase/firestore"
+import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
   CardContent, 
@@ -22,14 +22,14 @@ import {
 import { Button } from "@/components/ui/button"
 import { 
   FileDown, 
-  Calendar as CalendarIcon, 
-  Filter, 
   ArrowRight, 
   Loader2,
   Clock,
   User,
   Activity,
-  CalendarDays
+  CalendarDays,
+  Trash2,
+  AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -39,13 +39,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import Link from "next/link"
+import { toast } from "@/hooks/use-toast"
 
 export default function TimesheetsPage() {
   const { user } = useUser()
   const firestore = useFirestore()
   const [selectedEntry, setSelectedEntry] = useState<any>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -71,6 +83,15 @@ export default function TimesheetsPage() {
     setIsDetailsOpen(true)
   }
 
+  const handleDeleteEntry = () => {
+    if (!firestore || !selectedEntry) return
+    deleteDocumentNonBlocking(doc(firestore, "timeEntries", selectedEntry.id))
+    toast({ variant: "destructive", title: "Log Deleted", description: "Time entry removed from audit trail." })
+    setIsDeleteDialogOpen(false)
+    setIsDetailsOpen(false)
+    setSelectedEntry(null)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -94,56 +115,33 @@ export default function TimesheetsPage() {
                 <TableRow className="hover:bg-black">
                   <TableHead className="text-white font-black uppercase text-[10px]">Staff Name</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px]">Date</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Clock In</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Clock Out</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Duration</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Status</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Duration</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-20 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></TableCell></TableRow>
                 ) : (
                   timeEntries?.map((entry) => {
                     const staff = staffMembers?.find(s => s.id === entry.staffMemberId)
                     return (
                       <TableRow 
                         key={entry.id} 
-                        className="border-b border-black/10 hover:bg-muted/30 transition-colors cursor-pointer group"
+                        className="border-b border-black/10 hover:bg-muted/30 transition-colors cursor-pointer"
                         onClick={() => handleRowClick(entry)}
                       >
                         <TableCell className="font-black text-xs uppercase">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
-                        <TableCell className="text-xs font-bold uppercase">{new Date(entry.clockInTime).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-xs font-mono font-bold uppercase hidden md:table-cell">
-                          {new Date(entry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono font-bold uppercase hidden md:table-cell">
-                          {entry.clockOutTime ? new Date(entry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs font-black">
+                        <TableCell className="text-[10px] font-bold uppercase">{new Date(entry.clockInTime).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs font-black">
                           {calculateHours(entry.clockInTime, entry.clockOutTime)}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {entry.clockOutTime ? (
-                            <Badge variant="outline" className="text-black border-2 border-black bg-white rounded-none text-[8px] px-1 py-0 font-black">LOCKED</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="animate-pulse rounded-none text-[8px] px-1 py-0 font-black">ACTIVE</Badge>
-                          )}
+                        <TableCell className="text-right">
+                          <Button size="icon" variant="ghost" className="rounded-none border-2 border-transparent hover:border-black"><ArrowRight className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     )
                   })
-                )}
-                {(!timeEntries || timeEntries.length === 0) && !isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-20 font-black text-muted-foreground text-xs uppercase tracking-widest">
-                      No time records found in database.
-                    </TableCell>
-                  </TableRow>
                 )}
               </TableBody>
             </Table>
@@ -157,28 +155,10 @@ export default function TimesheetsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="font-bold uppercase opacity-60">Staff Registered</span>
-                <span className="font-black">{staffMembers?.length || 0}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="font-bold uppercase opacity-60">Total Logs</span>
-                <span className="font-black">{timeEntries?.length || 0}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="font-bold uppercase opacity-60">Active Shifts</span>
-                <span className="font-black">{timeEntries?.filter(e => !e.clockOutTime).length || 0}</span>
-              </div>
+              <div className="flex justify-between text-xs"><span className="font-bold uppercase opacity-60">Staff Registered</span><span className="font-black">{staffMembers?.length || 0}</span></div>
+              <div className="flex justify-between text-xs"><span className="font-bold uppercase opacity-60">Total Logs</span><span className="font-black">{timeEntries?.length || 0}</span></div>
             </div>
-
-            <div className="pt-4 border-t border-white/10 space-y-4">
-              <h4 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Quick View</h4>
-              <p className="text-[10px] leading-relaxed font-bold uppercase text-white/70">
-                All records shown are retrieved directly from Firestore. Use the Attendance page to manually manage active shifts.
-              </p>
-            </div>
-            
-            <Button variant="link" className="w-full text-white p-0 h-auto text-xs justify-start font-black uppercase tracking-tighter hover:no-underline hover:translate-x-1 transition-transform" asChild>
+            <Button variant="link" className="w-full text-white p-0 h-auto text-xs justify-start font-black uppercase tracking-tighter hover:no-underline" asChild>
               <Link href="/analytics">Operational Analytics <ArrowRight className="ml-2 h-3 w-3" /></Link>
             </Button>
           </CardContent>
@@ -188,78 +168,39 @@ export default function TimesheetsPage() {
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="border-4 border-black rounded-none max-w-sm sm:max-w-md">
           <DialogHeader className="border-b-2 border-black pb-4">
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Shift Summary</DialogTitle>
-            <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
-              Full record for session {selectedEntry?.id.slice(-6)}
-            </DialogDescription>
+            <DialogTitle className="text-2xl font-black uppercase">Shift Summary</DialogTitle>
           </DialogHeader>
-          
           {selectedEntry && (
             <div className="py-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" /> Technician
-                  </p>
-                  <p className="font-black text-sm uppercase">{selectedEntry.staffName}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                    <CalendarDays className="h-3 w-3" /> Date
-                  </p>
-                  <p className="font-black text-sm uppercase">{new Date(selectedEntry.clockInTime).toLocaleDateString()}</p>
-                </div>
+                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><User className="h-3 w-3 inline mr-1" /> Technician</p><p className="font-black text-sm uppercase">{selectedEntry.staffName}</p></div>
+                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground"><CalendarDays className="h-3 w-3 inline mr-1" /> Date</p><p className="font-black text-sm uppercase">{new Date(selectedEntry.clockInTime).toLocaleDateString()}</p></div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 p-4 border-2 border-black bg-muted/20">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground">Clock In</p>
-                  <p className="font-black text-lg tabular-nums">
-                    {new Date(selectedEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground">Clock Out</p>
-                  <p className="font-black text-lg tabular-nums">
-                    {selectedEntry.clockOutTime 
-                      ? new Date(selectedEntry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : "--:--"
-                    }
-                  </p>
-                </div>
+              <div className="p-4 border-2 border-black bg-muted/20 grid grid-cols-2 gap-4">
+                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Start</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">End</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</p></div>
               </div>
-
-              <div className="flex items-center justify-between border-t-2 border-black pt-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Total Duration
-                  </p>
-                  <p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1 justify-end">
-                    <Activity className="h-3 w-3" /> Status
-                  </p>
-                  {selectedEntry.clockOutTime ? (
-                    <Badge className="bg-black text-white rounded-none font-black uppercase text-[10px]">Session Locked</Badge>
-                  ) : (
-                    <Badge variant="destructive" className="rounded-none font-black uppercase text-[10px] animate-pulse">In Progress</Badge>
-                  )}
-                </div>
+              <div className="flex items-center justify-between pt-4 border-t-2 border-black">
+                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>
+                <Button onClick={() => setIsDeleteDialogOpen(true)} variant="destructive" className="rounded-none border-2 border-black font-black uppercase text-xs px-4 h-12"><Trash2 className="h-4 w-4 mr-2" /> DELETE LOG</Button>
               </div>
             </div>
           )}
-          
-          <div className="mt-4">
-            <Button 
-              onClick={() => setIsDetailsOpen(false)}
-              className="w-full bg-black text-white font-black h-12 rounded-none uppercase text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-0.5 active:translate-y-0.5 transition-all"
-            >
-              CLOSE RECORDS
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="border-4 border-black rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive" /> Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription className="font-bold text-black uppercase text-[11px]">Are you sure you want to permanently remove this time record? This will affect payroll auditing.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-2 border-black rounded-none font-black text-xs">ABORT</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-white border-2 border-black rounded-none font-black text-xs">DELETE</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

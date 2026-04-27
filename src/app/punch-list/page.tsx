@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, doc, serverTimestamp, query, orderBy } from "firebase/firestore"
+import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
@@ -11,20 +11,11 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription 
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
 import { 
   Dialog, 
   DialogContent, 
@@ -48,6 +39,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
+import { uploadToCloudinary } from "./upload-action"
 import Image from "next/image"
 
 export default function PunchListPage() {
@@ -58,6 +50,7 @@ export default function PunchListPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [hasCameraPermission, setHasCameraPermission] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -127,24 +120,42 @@ export default function PunchListPage() {
     setIsCameraOpen(false)
   }
 
-  const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!firestore) return
+    if (!firestore || isSubmitting) return
+    setIsSubmitting(true)
+
     const formData = new FormData(e.currentTarget)
+    let photoUrl = null
+
+    // Upload to Cloudinary if photo captured
+    if (capturedPhoto) {
+      try {
+        const uploadResult = await uploadToCloudinary(capturedPhoto)
+        photoUrl = uploadResult.url
+      } catch (err) {
+        toast({ 
+          variant: "destructive", 
+          title: "Cloudinary Sync Error", 
+          description: "Image upload failed. Storing metadata only." 
+        })
+      }
+    }
     
     const data = {
       description: formData.get("description") as string,
       dueDate: new Date(formData.get("dueDate") as string).toISOString(),
       address: formData.get("address") as string,
       status: "submitted",
-      photoUrl: capturedPhoto || null,
+      photoUrl: photoUrl,
       createdAt: new Date().toISOString()
     }
 
     addDocumentNonBlocking(collection(firestore, "punchLists"), data)
     setIsAddOpen(false)
     setCapturedPhoto(null)
-    toast({ title: "Task Submitted", description: "Punch list item added." })
+    setIsSubmitting(false)
+    toast({ title: "Task Submitted", description: "Punch list item added and image synchronized." })
   }
 
   const handleResolve = (item: any) => {
@@ -237,7 +248,9 @@ export default function PunchListPage() {
               </div>
 
               <DialogFooter>
-                <Button type="submit" className="w-full bg-black text-white font-black h-14 rounded-none text-lg uppercase">AUTHORIZE SUBMISSION</Button>
+                <Button type="submit" disabled={isSubmitting} className="w-full bg-black text-white font-black h-14 rounded-none text-lg uppercase">
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "AUTHORIZE SUBMISSION"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>

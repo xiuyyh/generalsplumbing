@@ -42,7 +42,6 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
 import { uploadToCloudinary } from "./upload-action"
-import Image from "next/image"
 import Link from "next/link"
 
 export default function PunchListPage() {
@@ -260,8 +259,8 @@ export default function PunchListPage() {
                     </div>
                   </CardContent>
                   {item.photoUrl && (
-                    <div className="relative w-full md:w-24 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-black bg-muted">
-                      <Image src={item.photoUrl} alt="Task visual" fill className="object-cover" unoptimized />
+                    <div className="relative w-full md:w-24 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-black bg-muted overflow-hidden">
+                      <img src={item.photoUrl} alt="Task visual" className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>

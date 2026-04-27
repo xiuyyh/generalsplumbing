@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
@@ -9,7 +10,6 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription 
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -29,7 +29,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
-import Image from "next/image"
 import Link from "next/link"
 
 export default function PunchListDetailPage() {
@@ -223,13 +222,11 @@ export default function PunchListDetailPage() {
             </CardHeader>
             <CardContent className="p-2">
               {item.photoUrl ? (
-                <div className="relative aspect-square border-2 border-black bg-muted">
-                  <Image 
+                <div className="relative aspect-square border-2 border-black bg-muted overflow-hidden">
+                  <img 
                     src={item.photoUrl} 
                     alt="Task evidence" 
-                    fill 
-                    className="object-cover"
-                    unoptimized
+                    className="w-full h-full object-cover"
                   />
                 </div>
               ) : (

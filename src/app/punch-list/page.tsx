@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -34,13 +35,15 @@ import {
   Trash2, 
   Upload,
   X,
-  FileImage
+  FileImage,
+  ArrowRight
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
 import { uploadToCloudinary } from "./upload-action"
 import Image from "next/image"
+import Link from "next/link"
 
 export default function PunchListPage() {
   const { user, isUserLoading } = useUser()
@@ -126,7 +129,7 @@ export default function PunchListPage() {
     setIsAddOpen(false)
     setCapturedPhoto(null)
     setIsSubmitting(false)
-    toast({ title: "Task Submitted", description: "Punch list item added and image synchronized." })
+    toast({ title: "Task Submitted", description: "Punch list item added." })
   }
 
   const handleResolve = (item: any) => {
@@ -136,26 +139,6 @@ export default function PunchListPage() {
       completedAt: new Date().toISOString()
     })
     toast({ title: "Task Resolved", description: "Marked as completed." })
-  }
-
-  const handleSendAlert = (item: any) => {
-    if (!telegramSettings?.chatId) {
-      toast({ variant: "destructive", title: "Configuration Error", description: "Telegram Chat ID not set in system settings." })
-      return
-    }
-
-    const status = getStatusInfo(item)
-    notifyPunchOverdue({
-      description: item.description,
-      address: item.address,
-      dueDate: item.dueDate,
-      daysOverdue: status.days || 0,
-      chatId: telegramSettings.chatId
-    }).then(() => {
-      toast({ title: "Alert Sent", description: "Overdue notification delivered to Telegram." })
-    }).catch(() => {
-      toast({ variant: "destructive", title: "Alert Failed", description: "Could not deliver Telegram notification." })
-    })
   }
 
   const handleDelete = (id: string) => {
@@ -172,8 +155,8 @@ export default function PunchListPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">Punch List</h1>
-          <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Site Deficiency & Task Tracking</p>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Punch List Registry</h1>
+          <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Site Deficiency & Task Management</p>
         </div>
         
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -188,7 +171,7 @@ export default function PunchListPage() {
               
               <div className="space-y-1">
                 <Label className="font-black uppercase text-[10px]">Task Description</Label>
-                <Textarea name="description" required className="border-2 border-black rounded-none min-h-[100px]" placeholder="Detail the issue or requirement..." />
+                <Textarea name="description" required className="border-2 border-black rounded-none min-h-[100px]" placeholder="Detail the issue..." />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -231,7 +214,7 @@ export default function PunchListPage() {
                     className="w-full border-2 border-black border-dashed h-20 rounded-none font-black uppercase" 
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Upload className="mr-2 h-6 w-6" /> Upload Photo
+                    <Upload className="mr-2 h-6 w-6" /> Upload Site Photo
                   </Button>
                 )}
               </div>
@@ -253,7 +236,7 @@ export default function PunchListPage() {
           punchItems?.map((item) => {
             const status = getStatusInfo(item)
             return (
-              <Card key={item.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+              <Card key={item.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                 <div className="flex flex-col md:flex-row">
                   <div className={`w-2 h-auto ${status.color}`} />
                   <CardContent className="p-4 flex-1">
@@ -263,7 +246,7 @@ export default function PunchListPage() {
                           {item.status === 'completed' ? <CheckCircle2 className="text-white" /> : <AlertCircle className="text-white" />}
                         </div>
                       </div>
-                      <div className="md:col-span-5 space-y-1">
+                      <div className="md:col-span-6 space-y-1">
                         <h3 className="font-black uppercase text-sm leading-tight">{item.description}</h3>
                         <div className="flex items-center gap-4 text-[10px] font-bold uppercase text-muted-foreground">
                           <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {item.address}</span>
@@ -275,39 +258,31 @@ export default function PunchListPage() {
                           {status.label}
                         </Badge>
                       </div>
-                      <div className="md:col-span-4 flex flex-wrap justify-end gap-2">
-                        {item.status !== 'completed' && (
-                          <>
-                            {status.isAlertable && (
-                              <Button size="sm" variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase text-red-600 hover:bg-red-50" onClick={() => handleSendAlert(item)}>
-                                <Bell className="h-3 w-3 mr-1" /> Send Alert
-                              </Button>
-                            )}
-                            <Button size="sm" className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase" onClick={() => handleResolve(item)}>
-                              <CheckCircle2 className="h-3 w-3 mr-1" /> Resolve
-                            </Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="ghost" className="h-8 text-destructive hover:bg-destructive/10 rounded-none" onClick={() => handleDelete(item.id)}>
+                      <div className="md:col-span-3 flex justify-end gap-2">
+                        <Button size="sm" asChild className="h-10 bg-black text-white rounded-none text-[10px] font-black uppercase px-4">
+                          <Link href={`/punch-list/${item.id}`}>Details <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-none" onClick={() => handleDelete(item.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    {item.completedAt && (
-                      <div className="mt-2 pt-2 border-t border-black/5 text-[8px] font-black uppercase text-green-600">
-                        Completed at: {new Date(item.completedAt).toLocaleString()}
-                      </div>
-                    )}
                   </CardContent>
                   {item.photoUrl && (
                     <div className="relative w-full md:w-32 aspect-video md:aspect-auto border-l-0 md:border-l-2 border-black bg-muted">
-                      <Image src={item.photoUrl} alt="Task visual" fill className="object-cover" />
+                      <Image src={item.photoUrl} alt="Task visual" fill className="object-cover" unoptimized />
                     </div>
                   )}
                 </div>
               </Card>
             )
           })
+        )}
+        {(!isLoading && (!punchItems || punchItems.length === 0)) && (
+          <div className="py-20 text-center border-4 border-black border-dashed bg-muted/20">
+            <FileImage className="h-12 w-12 mx-auto opacity-20" />
+            <p className="text-xs font-black uppercase mt-4 text-muted-foreground tracking-widest">No site deficiencies currently recorded.</p>
+          </div>
         )}
       </div>
     </div>

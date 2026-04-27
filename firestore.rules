@@ -76,5 +76,10 @@ service cloud.firestore {
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
     }
+
+    match /punchLists/{punchListId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
   }
 }

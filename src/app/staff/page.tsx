@@ -1,9 +1,8 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
@@ -64,7 +63,7 @@ export default function StaffPage() {
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return collection(firestore, "staffMembers")
+    return query(collection(firestore, "staffMembers"), orderBy("lastName", "asc"))
   }, [firestore, user])
   const { data: staffMembers, isLoading: isStaffLoading } = useCollection(staffQuery)
 
@@ -187,7 +186,7 @@ export default function StaffPage() {
                       <DropdownMenuContent align="end" className="rounded-none border-2 border-black p-1">
                         <DropdownMenuItem onClick={() => { setSelectedStaff(staff); setIsEditDialogOpen(true); }} className="font-black uppercase text-[10px] focus:bg-black focus:text-white"><Edit2 className="h-3 w-3 mr-2" /> Edit</DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-black/10" />
-                        <DropdownMenuItem onClick={() => handleDeleteStaff(staff)} className="font-black uppercase text-[10px] text-destructive focus:bg-destructive focus:text-white"><Trash2 className="h-3 w-3 mr-2" /> Terminate</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { if (window.confirm(`TERMINATE STAFF: Remove ${staff.firstName}?`)) handleDeleteStaff(staff); }} className="font-black uppercase text-[10px] text-destructive focus:bg-destructive focus:text-white"><Trash2 className="h-3 w-3 mr-2" /> Terminate</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

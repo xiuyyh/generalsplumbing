@@ -1,9 +1,8 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
@@ -75,7 +74,7 @@ export default function InventoryPage() {
 
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return collection(firestore, "inventoryItems")
+    return query(collection(firestore, "inventoryItems"), orderBy("name", "asc"))
   }, [firestore, user])
   const { data: inventoryItems, isLoading } = useCollection(inventoryQuery)
 
@@ -153,9 +152,7 @@ export default function InventoryPage() {
   const handleDelete = (item: any) => {
     if (!firestore) return
 
-    const confirmed = window.confirm(`TERMINATE RECORD: Are you sure you want to permanently remove "${item.name}"? This action cannot be undone.`)
-    
-    if (confirmed) {
+    if (window.confirm(`TERMINATE RECORD: Are you sure you want to permanently remove "${item.name}"?`)) {
       deleteDocumentNonBlocking(doc(firestore, "inventoryItems", item.id))
       toast({
         variant: "destructive",

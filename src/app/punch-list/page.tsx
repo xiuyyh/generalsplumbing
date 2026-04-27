@@ -132,15 +132,6 @@ export default function PunchListPage() {
     toast({ title: "Task Submitted", description: "Punch list item added." })
   }
 
-  const handleResolve = (item: any) => {
-    if (!firestore) return
-    updateDocumentNonBlocking(doc(firestore, "punchLists", item.id), {
-      status: "completed",
-      completedAt: new Date().toISOString()
-    })
-    toast({ title: "Task Resolved", description: "Marked as completed." })
-  }
-
   const handleDelete = (id: string) => {
     if (!firestore) return
     if (window.confirm("PERMANENT REMOVAL: Delete this punch task?")) {
@@ -238,38 +229,38 @@ export default function PunchListPage() {
             return (
               <Card key={item.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                 <div className="flex flex-col md:flex-row">
-                  <div className={`w-2 h-auto ${status.color}`} />
-                  <CardContent className="p-4 flex-1">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                      <div className="md:col-span-1 flex justify-center">
-                        <div className={`h-10 w-10 rounded-none border-2 border-black flex items-center justify-center ${status.color}`}>
-                          {item.status === 'completed' ? <CheckCircle2 className="text-white" /> : <AlertCircle className="text-white" />}
+                  <div className={`w-2 h-auto ${status.color} shrink-0`} />
+                  <CardContent className="p-3 flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                      <div className="md:col-span-1 hidden md:flex justify-center">
+                        <div className={`h-8 w-8 rounded-none border-2 border-black flex items-center justify-center ${status.color}`}>
+                          {item.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-white" /> : <AlertCircle className="h-4 w-4 text-white" />}
                         </div>
                       </div>
-                      <div className="md:col-span-6 space-y-1">
-                        <h3 className="font-black uppercase text-sm leading-tight">{item.description}</h3>
-                        <div className="flex items-center gap-4 text-[10px] font-bold uppercase text-muted-foreground">
-                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {item.address}</span>
-                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> DUE: {new Date(item.dueDate).toLocaleDateString()}</span>
+                      <div className="md:col-span-6 space-y-0.5">
+                        <h3 className="font-black uppercase text-xs leading-tight line-clamp-1">{item.description}</h3>
+                        <div className="flex items-center gap-3 text-[9px] font-bold uppercase text-muted-foreground">
+                          <span className="flex items-center gap-1 truncate max-w-[150px]"><MapPin className="h-2.5 w-2.5" /> {item.address}</span>
+                          <span className="flex items-center gap-1 shrink-0"><Calendar className="h-2.5 w-2.5" /> {new Date(item.dueDate).toLocaleDateString()}</span>
                         </div>
                       </div>
                       <div className="md:col-span-2">
-                        <Badge className={`${status.color} text-white font-black uppercase text-[8px] rounded-none px-2`}>
+                        <Badge className={`${status.color} text-white font-black uppercase text-[8px] rounded-none px-2 py-0 h-5 inline-flex items-center justify-center`}>
                           {status.label}
                         </Badge>
                       </div>
                       <div className="md:col-span-3 flex justify-end gap-2">
-                        <Button size="sm" asChild className="h-10 bg-black text-white rounded-none text-[10px] font-black uppercase px-4">
-                          <Link href={`/punch-list/${item.id}`}>Details <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                        <Button size="sm" asChild className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3">
+                          <Link href={`/punch-list/${item.id}`}>Details <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-none" onClick={() => handleDelete(item.id)}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-none" onClick={() => handleDelete(item.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                   {item.photoUrl && (
-                    <div className="relative w-full md:w-32 aspect-video md:aspect-auto border-l-0 md:border-l-2 border-black bg-muted">
+                    <div className="relative w-full md:w-24 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-black bg-muted">
                       <Image src={item.photoUrl} alt="Task visual" fill className="object-cover" unoptimized />
                     </div>
                   )}

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -268,7 +267,7 @@ export default function DispatchPage() {
                           />
                         </div>
                       </div>
-                      <ScrollArea className="h-60">
+                      <ScrollArea className="h-40 md:h-60">
                         <div className="p-1">
                           {filteredInventory(inventorySearch).map((item) => (
                             <Button

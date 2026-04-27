@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -117,7 +118,6 @@ export default function DispatchPage() {
     const assignedToStaffMemberId = formData.get("assignedTo") as string
     const purpose = formData.get("purpose") as string
     const deliveryAddress = formData.get("deliveryAddress") as string
-    const notes = formData.get("notes") as string
 
     const assignedStaff = staffMembers?.find(s => s.id === assignedToStaffMemberId);
     const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "Unknown";
@@ -147,7 +147,6 @@ export default function DispatchPage() {
           assignedToStaffMemberId,
           purpose,
           deliveryAddress,
-          notes,
           createdAt: serverTimestamp()
         })
 
@@ -173,7 +172,6 @@ export default function DispatchPage() {
             assignedTo: staffName,
             purpose,
             address: deliveryAddress,
-            notes,
             chatId: telegramSettings.chatId
           }).catch(err => {
             const errorMsg = err instanceof Error ? err.message : "Notification delivery failed."
@@ -359,10 +357,6 @@ export default function DispatchPage() {
             <div className="space-y-1">
               <Label className="font-black uppercase text-[10px]">Delivery Address</Label>
               <Input name="deliveryAddress" required className="h-10 border-2 border-black rounded-none font-bold" />
-            </div>
-            <div className="space-y-1">
-              <Label className="font-black uppercase text-[10px]">Internal Notes</Label>
-              <Input name="notes" className="h-10 border-2 border-black rounded-none font-bold" />
             </div>
             <Button 
               type="submit" 

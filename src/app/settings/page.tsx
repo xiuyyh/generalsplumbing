@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -14,7 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, Send, MessageSquareText, Info, AlertCircle } from "lucide-react"
+import { Settings, ShieldAlert, Loader2, Save, UserPlus, Lock, MessageSquareText, AlertCircle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 
@@ -23,11 +24,12 @@ export default function SettingsPage() {
   const firestore = useFirestore()
   const [isSaving, setIsSaving] = useState(false)
 
-  const adminRef = useMemoFirebase(() => {
+  // Use the standard users collection to check role
+  const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return doc(firestore, "roles_admin", user.uid)
+    return doc(firestore, "users", user.uid)
   }, [firestore, user])
-  const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   const authSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null
@@ -62,7 +64,7 @@ export default function SettingsPage() {
     setIsSaving(false)
   }
 
-  if (isAdminLoading || isAuthLoading || isTelLoading) {
+  if (isProfileLoading || isAuthLoading || isTelLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
@@ -71,7 +73,9 @@ export default function SettingsPage() {
     )
   }
 
-  if (!adminRole) {
+  const isAdmin = profile?.role === "ADMIN"
+
+  if (!isAdmin) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-4">
         <ShieldAlert className="h-16 w-16 mx-auto text-black" />
@@ -91,7 +95,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6 pb-12">
-        {/* Auth Section */}
         <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
           <CardHeader className="bg-black text-white p-4">
             <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
@@ -115,7 +118,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Telegram Section */}
         <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white">
           <CardHeader className="bg-black text-white p-4">
             <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
@@ -147,7 +149,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <Button type="submit" disabled={isSaving} className="w-full h-12 bg-black text-white font-black uppercase rounded-none border-2 border-black">
-                {isSaving ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> UPDATE</>}
+                {isSaving ? <Loader2 className="animate-spin" /> : "UPDATE"}
               </Button>
             </form>
           </CardContent>

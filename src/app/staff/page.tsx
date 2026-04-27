@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
@@ -39,7 +40,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { UserPlus, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { useDoc } from "@/firebase/firestore/use-doc"
 
 export default function StaffPage() {
   const { user, isUserLoading: isAuthLoading } = useUser()
@@ -55,11 +55,11 @@ export default function StaffPage() {
     }
   }, [user, isAuthLoading, router])
 
-  const adminRef = useMemoFirebase(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return doc(firestore, "roles_admin", user.uid)
+    return doc(firestore, "users", user.uid)
   }, [firestore, user])
-  const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -113,7 +113,7 @@ export default function StaffPage() {
   const handleDeleteStaff = (staff: any) => {
     if (!firestore) return
     
-    const confirmed = window.confirm(`TERMINATE STAFF: Are you sure you want to permanently remove "${staff.firstName} ${staff.lastName}"? All active shifts for this technician will be affected.`)
+    const confirmed = window.confirm(`TERMINATE STAFF: Are you sure you want to permanently remove "${staff.firstName} ${staff.lastName}"?`)
     
     if (confirmed) {
       deleteDocumentNonBlocking(doc(firestore, "staffMembers", staff.id))
@@ -121,9 +121,25 @@ export default function StaffPage() {
     }
   }
 
-  if (isAuthLoading || !user) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
-  if (isAdminLoading || isStaffLoading) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
-  if (!adminRole) return <div className="text-center py-20"><ShieldAlert className="h-16 w-16 mx-auto" /><h2 className="text-2xl font-black uppercase mt-4">Access Denied</h2></div>
+  if (isAuthLoading || !user || isProfileLoading || isStaffLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  const isAdmin = profile?.role === "ADMIN"
+
+  if (!isAdmin) {
+    return (
+      <div className="text-center py-20">
+        <ShieldAlert className="h-16 w-16 mx-auto" />
+        <h2 className="text-2xl font-black uppercase mt-4">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Administrative credentials required.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

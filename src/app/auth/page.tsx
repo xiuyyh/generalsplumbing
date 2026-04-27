@@ -43,8 +43,6 @@ export default function AuthPage() {
       getDoc(userRef).then(async (snap) => {
         if (!snap.exists()) {
           // Check if this is the first user in the system to bootstrap Admin
-          // Note: This check is a heuristic for prototypes. 
-          // If we can't list users due to rules, we assume we aren't the first.
           let role = "WORKER"
           let status = "pending"
 
@@ -57,8 +55,7 @@ export default function AuthPage() {
               status = "approved"
             }
           } catch (e) {
-            // If query fails, it means we don't have permission to list (standard rule)
-            // or the collection exists and we are just a new worker.
+            // Permission denied or other error - default to worker/pending
           }
 
           setDocumentNonBlocking(userRef, {

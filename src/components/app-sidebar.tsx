@@ -3,17 +3,14 @@
 
 import * as React from "react"
 import {
-  Clock,
   LayoutDashboard,
   Package,
   Truck,
-  FileText,
   History,
   Users,
   LogOut,
   Settings,
   ListChecks,
-  ChevronRight,
   ChevronDown,
   Hammer,
   UserCog
@@ -53,7 +50,9 @@ export function AppSidebar() {
   const { data: profile } = useDoc(userRef)
 
   const role = profile?.role || "WORKER"
-  const isApproved = profile?.status === "approved"
+  const isAdmin = role === "ADMIN"
+  // Approved means status is approved OR the user is an Admin
+  const isApproved = profile?.status === "approved" || isAdmin
 
   if (!user || pathname === "/auth") {
     return null
@@ -67,10 +66,9 @@ export function AppSidebar() {
     }
   }
 
-  const isAdmin = role === "ADMIN"
   const canAccessInventory = isAdmin || role === "INVENTORY"
   const canAccessPunch = isAdmin || role === "PUNCH_LIST"
-  const canAccessRequests = isApproved // All approved users can see requests
+  const canAccessRequests = isApproved // All approved users/admins can see requests
 
   return (
     <Sidebar collapsible="icon" className="border-r-4 border-black">

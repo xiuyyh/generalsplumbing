@@ -33,7 +33,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Trash2, 
-  Upload,
   X,
   FileImage,
   ArrowRight,
@@ -53,6 +52,7 @@ export default function PunchListPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [minDate, setMinDate] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -60,6 +60,11 @@ export default function PunchListPage() {
       router.replace("/auth")
     }
   }, [user, isUserLoading, router])
+
+  useEffect(() => {
+    // Prevent hydration error by setting min date on mount
+    setMinDate(new Date().toISOString().split('T')[0])
+  }, [])
 
   const punchQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -102,9 +107,23 @@ export default function PunchListPage() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!firestore || !storage || isSubmitting) return
-    setIsSubmitting(true)
 
     const formData = new FormData(e.currentTarget)
+    const dueDateVal = formData.get("dueDate") as string
+    const selectedDate = new Date(dueDateVal)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (selectedDate < today) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Due Date",
+        description: "The deadline cannot be set in the past."
+      })
+      return
+    }
+
+    setIsSubmitting(true)
     const photoUrls: string[] = []
 
     if (selectedFiles.length > 0) {
@@ -127,7 +146,7 @@ export default function PunchListPage() {
     
     const data = {
       description: formData.get("description") as string,
-      dueDate: new Date(formData.get("dueDate") as string).toISOString(),
+      dueDate: selectedDate.toISOString(),
       address: formData.get("address") as string,
       status: "submitted",
       photoUrls: photoUrls,
@@ -178,7 +197,7 @@ export default function PunchListPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="font-black uppercase text-[10px]">Due Date</Label>
-                  <Input name="dueDate" type="date" required className="border-2 border-black rounded-none h-12" />
+                  <Input name="dueDate" type="date" required min={minDate} className="border-2 border-black rounded-none h-12" />
                 </div>
                 <div className="space-y-1">
                   <Label className="font-black uppercase text-[10px]">Job Address</Label>
@@ -240,7 +259,7 @@ export default function PunchListPage() {
         ) : (
           punchItems?.map((item) => {
             const status = getStatusInfo(item)
-            const mainPhoto = item.photoUrls && item.photoUrls.length > 0 ? item.photoUrls[0] : item.photoUrl
+            const mainPhoto = item.photoUrls && item.photoUrls.length > 0 ? item.photoUrls[0] : null
             return (
               <Card key={item.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                 <div className="flex flex-col md:flex-row">

@@ -7,8 +7,6 @@ import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase
 import { 
   Card, 
   CardContent, 
-  CardHeader, 
-  CardTitle, 
 } from "@/components/ui/card"
 import { 
   Table, 
@@ -27,8 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { UserCog, Loader2, Check, X, Shield, Trash2 } from "lucide-react"
+import { UserCog, Loader2, Check, X, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 const ROLES = ["ADMIN", "PUNCH_LIST", "INVENTORY", "WORKER"]
 

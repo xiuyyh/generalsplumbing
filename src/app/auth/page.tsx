@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, collection, getDocs, limit, query } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -40,14 +40,33 @@ export default function AuthPage() {
       const userRef = doc(firestore, "users", user.uid)
       
       // Initialize profile if it doesn't exist
-      getDoc(userRef).then((snap) => {
+      getDoc(userRef).then(async (snap) => {
         if (!snap.exists()) {
+          // Check if this is the first user in the system to bootstrap Admin
+          // Note: This check is a heuristic for prototypes. 
+          // If we can't list users due to rules, we assume we aren't the first.
+          let role = "WORKER"
+          let status = "pending"
+
+          try {
+            const usersQuery = query(collection(firestore, "users"), limit(1))
+            const usersSnap = await getDocs(usersQuery)
+            if (usersSnap.empty) {
+              // First user ever! Make them approved Admin
+              role = "ADMIN"
+              status = "approved"
+            }
+          } catch (e) {
+            // If query fails, it means we don't have permission to list (standard rule)
+            // or the collection exists and we are just a new worker.
+          }
+
           setDocumentNonBlocking(userRef, {
             uid: user.uid,
             email: user.email,
             displayName: displayName || user.email?.split('@')[0] || "New User",
-            status: "pending",
-            role: "WORKER",
+            status: status,
+            role: role,
             createdAt: new Date().toISOString()
           }, { merge: true })
         }

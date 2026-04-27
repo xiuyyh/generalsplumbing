@@ -11,8 +11,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
+    // Admins are always implicitly approved to prevent system lockouts
     function isApproved() {
-      return isSignedIn() && getUserData().status == 'approved';
+      return isSignedIn() && (getUserData().status == 'approved' || getUserData().role == 'ADMIN');
     }
     
     function hasRole(role) {
@@ -20,7 +21,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return hasRole('ADMIN');
+      return isSignedIn() && getUserData().role == 'ADMIN';
     }
 
     match /users/{userId} {
@@ -56,6 +57,11 @@ service cloud.firestore {
     match /appSettings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+    
+    // Explicit rule for bootstrapping
+    match /users/{uid} {
+      allow list: if isSignedIn() && !exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
   }
 }

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -6,6 +7,7 @@ service cloud.firestore {
      * Core Philosophy:
      * This ruleset implements a dual-layered authorization model: Role-Based Access Control (RBAC) 
      * via an admin sentinel collection and Ownership-Based Access Control for staff-related operations.
+     * Update triggered to sync Storage permissions.
      */
 
     // --- Helper Functions ---

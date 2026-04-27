@@ -26,6 +26,15 @@
         "chatId": { "type": "string", "description": "Telegram Chat ID for notifications." }
       }
     },
+    "AdminRole": {
+      "title": "AdminRole",
+      "type": "object",
+      "description": "Sentinel document indicating a user has administrative privileges.",
+      "properties": {
+        "assignedAt": { "type": "string", "format": "date-time" },
+        "email": { "type": "string" }
+      }
+    },
     "TimeEntry": {
       "title": "TimeEntry",
       "type": "object",

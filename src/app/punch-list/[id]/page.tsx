@@ -151,7 +151,7 @@ export default function PunchListDetailPage() {
           <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
             <CardHeader className="bg-black text-white py-4">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-2xl font-black uppercase tracking-tighter">Task Intelligence</CardTitle>
+                <CardTitle className="text-2xl font-black uppercase tracking-tighter">Task</CardTitle>
                 <Badge className={`${status.color} text-white font-black uppercase rounded-none border-2 border-white`}>
                   {status.label}
                 </Badge>

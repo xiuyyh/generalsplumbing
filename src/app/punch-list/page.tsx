@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useUser, useFirestore, useCollection, useMemoFirebase, useStorage } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useStorage, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -36,7 +36,8 @@ import {
   X,
   FileImage,
   ArrowRight,
-  PlusCircle
+  PlusCircle,
+  ShieldAlert
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
@@ -55,6 +56,12 @@ export default function PunchListPage() {
   const [minDate, setMinDate] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.replace("/auth")
@@ -71,6 +78,26 @@ export default function PunchListPage() {
     return query(collection(firestore, "punchLists"), orderBy("createdAt", "desc"))
   }, [firestore, user])
   const { data: punchItems, isLoading } = useCollection(punchQuery)
+
+  if (isUserLoading || isProfileLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
+
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+  const canAccess = isAdmin || role === "PUNCH_LIST"
+
+  if (!isApproved || !canAccess) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Your account is not authorized to access the punch list system.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
 
   const getStatusInfo = (item: any) => {
     if (item.status === 'completed') return { color: "bg-green-500", label: "Completed" }
@@ -168,8 +195,6 @@ export default function PunchListPage() {
       toast({ variant: "destructive", title: "Task Deleted" })
     }
   }
-
-  if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
   return (
     <div className="space-y-6">

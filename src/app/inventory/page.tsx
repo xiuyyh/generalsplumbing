@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
@@ -31,7 +32,8 @@ import {
   Edit2,
   Loader2,
   TrendingUp,
-  Trash2
+  Trash2,
+  ShieldAlert
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -52,6 +54,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 export default function InventoryPage() {
   const { user, isUserLoading } = useUser()
@@ -65,9 +68,15 @@ export default function InventoryPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [restockAmount, setRestockAmount] = useState<number>(0)
 
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
   useEffect(() => {
     if (!isUserLoading && !user) {
-      router.push("/auth")
+      router.replace("/auth")
     }
   }, [user, isUserLoading, router])
 
@@ -76,6 +85,33 @@ export default function InventoryPage() {
     return query(collection(firestore, "inventoryItems"), orderBy("name", "asc"))
   }, [firestore, user])
   const { data: inventoryItems, isLoading } = useCollection(inventoryQuery)
+
+  if (isUserLoading || isProfileLoading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Access...</p>
+      </div>
+    )
+  }
+
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+  const canAccess = isAdmin || role === "INVENTORY"
+
+  if (!isApproved || !canAccess) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Your account is not authorized to access the inventory catalog.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
 
   const filteredItems = inventoryItems?.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -152,15 +188,6 @@ export default function InventoryPage() {
         description: `${item.name} removed from catalog.`,
       })
     }
-  }
-
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Access...</p>
-      </div>
-    )
   }
 
   return (

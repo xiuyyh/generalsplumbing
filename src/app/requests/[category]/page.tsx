@@ -28,17 +28,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Hammer, Send, Loader2, MapPin, Search, Check, Clock, CheckCircle2, Package } from "lucide-react"
+import { Hammer, Send, Loader2, MapPin, Search, Check, Clock, CheckCircle2, Package, ShieldAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 export default function RequestCategoryPage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const params = useParams()
   const router = useRouter()
-  const category = (params.category as string).charAt(0).toUpperCase() + (params.category as string).slice(1)
+  const categoryStr = (params.category as string) || ""
+  const category = categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)
   
   const [selectedItemId, setSelectedItemId] = useState("")
   const [quantity, setQuantity] = useState(1)
@@ -51,7 +53,7 @@ export default function RequestCategoryPage() {
     if (!firestore || !user) return null
     return doc(firestore, "users", user.uid)
   }, [firestore, user])
-  const { data: profile } = useDoc(userRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userRef)
 
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -65,9 +67,37 @@ export default function RequestCategoryPage() {
   }, [firestore, user])
   const { data: requests, isLoading: isRequestsLoading } = useCollection(requestsQuery)
 
-  const filteredRequests = requests?.filter(r => r.category === category) || []
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace("/auth")
+    }
+  }, [user, isUserLoading, router])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  if (isUserLoading || isProfileLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
+
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+
+  if (!isApproved) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Your account is awaiting approval. Once approved, you will be able to submit material requests.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  const filteredRequests = requests?.filter(r => r.category === category) || []
+  const filteredInventory = inventoryItems?.filter(item => 
+    item.name.toLowerCase().includes(inventorySearch.toLowerCase())
+  ) || []
+
+  const handleSubmit = async (e: React.Form) => {
     e.preventDefault()
     if (!firestore || !user || isSubmitting || !selectedItemId || !address) return
     setIsSubmitting(true)
@@ -111,12 +141,6 @@ export default function RequestCategoryPage() {
       toast({ variant: "destructive", title: "Error", description: "Update failed." })
     }
   }
-
-  if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
-
-  const filteredInventory = inventoryItems?.filter(item => 
-    item.name.toLowerCase().includes(inventorySearch.toLowerCase())
-  ) || []
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">

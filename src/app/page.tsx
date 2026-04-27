@@ -1,10 +1,10 @@
 
 "use client"
 
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { collection, query, orderBy, limit } from "firebase/firestore"
+import { collection, query, orderBy, limit, doc } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -21,7 +21,9 @@ import {
   AlertTriangle,
   History,
   Loader2,
-  ListChecks
+  ListChecks,
+  ShieldAlert,
+  Clock8
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -31,6 +33,12 @@ export default function Dashboard() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
+
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -57,17 +65,74 @@ export default function Dashboard() {
   }, [firestore, user])
   const { data: punchLists } = useCollection(punchListQuery)
 
-  const dispatchesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
-    return collection(firestore, "inventoryDispatches")
-  }, [firestore, user])
-  const { data: dispatches } = useCollection(dispatchesQuery)
-
   const recentEntriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return query(collection(firestore, "timeEntries"), orderBy("clockInTime", "desc"), limit(5))
   }, [firestore, user])
   const { data: timeEntries } = useCollection(recentEntriesQuery)
+
+  if (isUserLoading || isProfileLoading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Verifying Terminal Access...</p>
+      </div>
+    )
+  }
+
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+
+  // ISOLATED SECTION FOR PENDING USERS
+  if (!isApproved) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-6">
+        <div className="relative inline-block">
+          <Clock8 className="h-24 w-24 mx-auto text-black animate-pulse" />
+          <ShieldAlert className="h-8 w-8 text-black absolute -bottom-2 -right-2 bg-white" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Awaiting Approval</h1>
+          <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">Generals Plumbing Security Terminal</p>
+        </div>
+        <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white p-6">
+          <p className="font-bold text-sm leading-relaxed">
+            Your account request has been received. To maintain system integrity, an administrator must verify your identity and assign your operational role before you can access the management suite.
+          </p>
+          <div className="mt-6 pt-6 border-t-2 border-black border-dashed">
+            <p className="text-[10px] font-black uppercase text-muted-foreground">
+              Current Status: <span className="text-black">{profile?.status?.toUpperCase() || "PENDING"}</span>
+            </p>
+          </div>
+        </Card>
+        <p className="text-[9px] font-black uppercase text-muted-foreground max-w-xs mx-auto">
+          Please contact your supervisor if this delay exceeds 24 hours.
+        </p>
+      </div>
+    )
+  }
+
+  // Redirect Workers to their only allowed section if they land on root dashboard
+  if (role === "WORKER" && !isAdmin) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-6">
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Welcome, {profile?.displayName}</h1>
+        <p className="font-bold">Your account is authorized for material requests.</p>
+        <div className="grid grid-cols-1 gap-4">
+          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
+            <Link href="/requests/rough">Go to Rough Requests</Link>
+          </Button>
+          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
+            <Link href="/requests/underslab">Go to Underslab Requests</Link>
+          </Button>
+          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
+            <Link href="/requests/final">Go to Final Requests</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const lowStock = inventoryItems?.filter(i => i.currentStock <= (i.reorderThreshold || 0)) || []
   const activePunchTasks = punchLists?.filter(p => p.status !== 'completed') || []
@@ -79,17 +144,6 @@ export default function Dashboard() {
     { title: "Inventory Items", value: inventoryItems?.length || "0", icon: Package, color: "text-black" },
   ]
 
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-          {isUserLoading ? "Verifying Access..." : "Redirecting to Terminal..."}
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
@@ -98,12 +152,16 @@ export default function Dashboard() {
           <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Status: Online</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild className="border-2 border-black font-black h-10 px-4 rounded-none">
-            <Link href="/analytics"><History className="mr-2 h-4 w-4" /> Reports</Link>
-          </Button>
-          <Button size="sm" asChild className="bg-black text-white font-black h-10 px-4 rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)]">
-            <Link href="/dispatch"><Truck className="mr-2 h-4 w-4" /> Dispatch</Link>
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" asChild className="border-2 border-black font-black h-10 px-4 rounded-none">
+              <Link href="/analytics"><History className="mr-2 h-4 w-4" /> Reports</Link>
+            </Button>
+          )}
+          {(isAdmin || role === "INVENTORY") && (
+            <Button size="sm" asChild className="bg-black text-white font-black h-10 px-4 rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)]">
+              <Link href="/dispatch"><Truck className="mr-2 h-4 w-4" /> Dispatch</Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -159,9 +217,11 @@ export default function Dashboard() {
                 <div className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">No recent shift activity.</div>
               )}
             </div>
-            <Button variant="ghost" className="w-full mt-2 text-black font-black h-10 uppercase text-xs tracking-widest border-2 border-black rounded-none hover:bg-black hover:text-white transition-colors" asChild>
-              <Link href="/timesheets">View All Sheets <ArrowUpRight className="ml-1 h-3 w-3" /></Link>
-            </Button>
+            {isAdmin && (
+              <Button variant="ghost" className="w-full mt-2 text-black font-black h-10 uppercase text-xs tracking-widest border-2 border-black rounded-none hover:bg-black hover:text-white transition-colors" asChild>
+                <Link href="/timesheets">View All Sheets <ArrowUpRight className="ml-1 h-3 w-3" /></Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -193,9 +253,11 @@ export default function Dashboard() {
                 <div className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">All stock levels optimal.</div>
               )}
             </div>
-            <Button className="w-full mt-4 border-2 border-black font-black uppercase h-10 rounded-none text-black hover:bg-black hover:text-white transition-colors text-xs" variant="outline" asChild>
-              <Link href="/inventory">Manage Catalog</Link>
-            </Button>
+            {(isAdmin || role === "INVENTORY") && (
+              <Button className="w-full mt-4 border-2 border-black font-black uppercase h-10 rounded-none text-black hover:bg-black hover:text-white transition-colors text-xs" variant="outline" asChild>
+                <Link href="/inventory">Manage Catalog</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

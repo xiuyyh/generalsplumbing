@@ -1,8 +1,10 @@
 
 "use client"
 
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
@@ -25,21 +27,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { UserCog, Loader2, Check, X, Trash2 } from "lucide-react"
+import { UserCog, Loader2, Check, X, Trash2, ShieldAlert } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 const ROLES = ["ADMIN", "PUNCH_LIST", "INVENTORY", "WORKER"]
 
 export default function UserManagementPage() {
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
+  const router = useRouter()
+
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return query(collection(firestore, "users"), orderBy("createdAt", "desc"))
   }, [firestore, user])
   const { data: users, isLoading } = useCollection(usersQuery)
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace("/auth")
+    }
+  }, [user, isUserLoading, router])
+
+  if (isUserLoading || isProfileLoading || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin h-10 w-10" />
+      </div>
+    )
+  }
+
+  const isAdmin = profile?.role === "ADMIN"
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Only administrators are authorized to manage system users.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
 
   const handleUpdateRole = (uid: string, role: string) => {
     if (!firestore) return
@@ -66,8 +105,6 @@ export default function UserManagementPage() {
       toast({ variant: "destructive", title: "User Deleted" })
     }
   }
-
-  if (isLoading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
   return (
     <div className="space-y-6">

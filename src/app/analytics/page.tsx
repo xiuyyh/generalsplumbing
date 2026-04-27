@@ -1,7 +1,10 @@
+
 "use client"
 
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, doc } from "firebase/firestore"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
@@ -27,7 +30,8 @@ import {
   Users, 
   Package, 
   AlertCircle,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from "lucide-react"
 import { 
   ChartContainer, 
@@ -35,6 +39,8 @@ import {
   ChartTooltipContent,
   type ChartConfig
 } from "@/components/ui/chart"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 const COLORS = ['#000000', '#444444', '#777777', '#AAAAAA']
 
@@ -46,8 +52,15 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function AnalyticsPage() {
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
+  const router = useRouter()
+
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -67,6 +80,36 @@ export default function AnalyticsPage() {
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
 
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace("/auth")
+    }
+  }, [user, isUserLoading, router])
+
+  if (isUserLoading || isProfileLoading || isInvLoading || isDispLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Aggregating System Intelligence...</p>
+      </div>
+    )
+  }
+
+  const isAdmin = profile?.role === "ADMIN"
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Administrative credentials are required to view system analytics.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
+
   // Process data for charts
   const topPartsData = inventoryItems?.map(item => ({
     name: item.name,
@@ -83,15 +126,6 @@ export default function AnalyticsPage() {
     name: new Date(date).toLocaleDateString([], { weekday: 'short' }),
     usage: dispatches?.filter(d => d.dispatchDateTime.startsWith(date)).length || 0
   }))
-
-  if (isInvLoading || isDispLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Aggregating System Intelligence...</p>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-8">

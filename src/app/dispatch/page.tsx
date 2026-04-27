@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -35,7 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight } from "lucide-react"
+import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight, ShieldAlert } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
@@ -53,6 +54,12 @@ export default function DispatchPage() {
   // Search state for searchable item picker
   const [inventorySearch, setInventorySearch] = useState("")
   const [openPickerId, setOpenPickerId] = useState<number | null>(null)
+
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -83,6 +90,26 @@ export default function DispatchPage() {
     return query(collection(firestore, "inventoryDispatches"), orderBy("dispatchDateTime", "desc"))
   }, [firestore, user])
   const { data: dispatches, isLoading: isDispLoading } = useCollection(recentDispatchesQuery)
+
+  if (isUserLoading || isProfileLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
+
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+  const canAccess = isAdmin || role === "INVENTORY"
+
+  if (!isApproved || !canAccess) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-4">
+        <ShieldAlert className="h-16 w-16 mx-auto text-black" />
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
+        <p className="text-muted-foreground font-bold">Your account is not authorized to access the dispatch portal.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Terminal</Link>
+        </Button>
+      </div>
+    )
+  }
 
   const addItemRow = () => {
     setItems([...items, { id: Date.now(), inventoryItemId: "", quantity: 1 }])
@@ -143,7 +170,7 @@ export default function DispatchPage() {
           inventoryItemId: item.inventoryItemId,
           quantity: Number(item.quantity),
           dispatchDateTime: new Date().toISOString(),
-          dispatchedByStaffMemberId: "ADMIN",
+          dispatchedByStaffMemberId: user.uid,
           assignedToStaffMemberId,
           purpose,
           deliveryAddress,
@@ -191,8 +218,6 @@ export default function DispatchPage() {
       setIsSubmitting(false)
     }
   }
-
-  if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
   const filteredInventory = (search: string) => {
     if (!inventoryItems) return []

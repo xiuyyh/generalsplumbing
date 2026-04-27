@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -79,8 +80,7 @@ export default function InventoryPage() {
   const { data: inventoryItems, isLoading } = useCollection(inventoryQuery)
 
   const filteredItems = inventoryItems?.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
 
   const handleCreateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -90,7 +90,6 @@ export default function InventoryPage() {
     const formData = new FormData(e.currentTarget)
     const newItem = {
       name: formData.get("name") as string,
-      sku: formData.get("sku") as string,
       currentStock: Number(formData.get("currentStock")),
       reorderThreshold: Number(formData.get("reorderThreshold")),
       description: formData.get("description") as string,
@@ -113,7 +112,6 @@ export default function InventoryPage() {
     const formData = new FormData(e.currentTarget)
     const updatedData = {
       name: formData.get("name") as string,
-      sku: formData.get("sku") as string,
       reorderThreshold: Number(formData.get("reorderThreshold")),
       description: formData.get("description") as string,
       pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
@@ -198,10 +196,6 @@ export default function InventoryPage() {
                   <Label htmlFor="name" className="text-xs font-black uppercase">Item Name</Label>
                   <Input id="name" name="name" required className="border-2 border-black rounded-none h-10 font-bold" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sku" className="text-xs font-black uppercase">SKU / Part #</Label>
-                  <Input id="sku" name="sku" required className="border-2 border-black rounded-none h-10 font-bold" />
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="currentStock" className="text-xs font-black uppercase">Initial Stock</Label>
@@ -231,7 +225,7 @@ export default function InventoryPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input 
-            placeholder="Search catalog by name or SKU..." 
+            placeholder="Search catalog by name..." 
             className="pl-10 h-10 w-full border-2 border-black rounded-none bg-white text-xs font-bold focus:outline-none focus:ring-0" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -247,7 +241,6 @@ export default function InventoryPage() {
           <Table>
             <TableHeader className="bg-black">
               <TableRow className="hover:bg-black border-none">
-                <TableHead className="text-white font-black uppercase text-[10px]">SKU</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px]">Item</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px] text-center">In Stock</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px]">Status</TableHead>
@@ -257,14 +250,13 @@ export default function InventoryPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center">
+                  <TableCell colSpan={4} className="py-10 text-center">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredItems.map((item) => (
                   <TableRow key={item.id} className="border-b border-black/10 hover:bg-muted/30">
-                    <TableCell className="font-mono text-[10px] text-muted-foreground uppercase">{item.sku}</TableCell>
                     <TableCell className="font-black text-xs uppercase">{item.name}</TableCell>
                     <TableCell className="text-center font-mono font-black text-xs">
                       {item.currentStock}
@@ -346,10 +338,6 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 <Label htmlFor="edit-name" className="text-xs font-black uppercase">Item Name</Label>
                 <Input id="edit-name" name="name" defaultValue={selectedItem?.name} required className="border-2 border-black rounded-none h-10 font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-sku" className="text-xs font-black uppercase">SKU / Part #</Label>
-                <Input id="edit-sku" name="sku" defaultValue={selectedItem?.sku} required className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>

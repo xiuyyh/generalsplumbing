@@ -56,12 +56,11 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "sku": { "type": "string" },
         "currentStock": { "type": "number" },
         "reorderThreshold": { "type": "number" },
         "pricePerUnit": { "type": "number" }
       },
-      "required": ["id", "name", "sku", "currentStock"]
+      "required": ["id", "name", "currentStock"]
     },
     "InventoryDispatch": {
       "title": "InventoryDispatch",

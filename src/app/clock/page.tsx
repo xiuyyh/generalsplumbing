@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, where, getDocs, limit, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
@@ -24,7 +25,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Clock, Loader2, ShieldAlert, Save, History } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { useDoc } from "@/firebase/firestore/use-doc"
 
 export default function ClockPage() {
   const { user, isUserLoading: isAuthLoading } = useUser()
@@ -54,12 +54,12 @@ export default function ClockPage() {
     }
   }, [user, isAuthLoading, router])
 
-  // Admin access check
-  const adminRef = useMemoFirebase(() => {
+  // Centralized RBAC check using the users collection
+  const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return doc(firestore, "roles_admin", user.uid)
+    return doc(firestore, "users", user.uid)
   }, [firestore, user])
-  const { data: adminRole, isLoading: isAdminLoading } = useDoc(adminRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   // Fetch staff registry (sorted by last name)
   const staffQuery = useMemoFirebase(() => {
@@ -131,30 +131,26 @@ export default function ClockPage() {
     setIsProcessing(false)
   }
 
-  if (isAuthLoading || !user) {
+  if (isAuthLoading || isProfileLoading || isStaffLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verifying Identity...</p>
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verifying Terminal Access...</p>
       </div>
     )
   }
 
-  if (isAdminLoading || isStaffLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Accessing Records...</p>
-      </div>
-    )
-  }
+  const isAdmin = profile?.role === "ADMIN"
 
-  if (!adminRole) {
+  if (!isAdmin) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-4">
         <ShieldAlert className="h-16 w-16 mx-auto text-black" />
-        <h2 className="text-2xl font-black uppercase tracking-tighter">Admin Access Required</h2>
-        <p className="text-muted-foreground font-bold">Only administrators are authorized to manage technician attendance logs.</p>
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Admin Access Only</h2>
+        <p className="text-muted-foreground font-bold">Only administrators are authorized to manage technician attendance logs for the team.</p>
+        <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
+          <Link href="/">Return to Dashboard</Link>
+        </Button>
       </div>
     )
   }
@@ -163,16 +159,16 @@ export default function ClockPage() {
     <div className="max-w-xl mx-auto space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-black uppercase tracking-tighter">Attendance Terminal</h1>
-        <p className="text-muted-foreground font-bold tracking-wide uppercase text-[10px]">Manual Attendance Record Entry</p>
+        <p className="text-muted-foreground font-bold tracking-wide uppercase text-[10px]">Administrative Shift Registry</p>
       </div>
 
       <Card className="border-2 border-black overflow-hidden shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-white rounded-none">
         <CardHeader className="space-y-4 pb-4 border-b-2 border-black bg-muted/10">
           <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identify Technician</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Personnel</Label>
             <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
               <SelectTrigger className="h-12 text-sm font-black border-2 border-black rounded-none">
-                <SelectValue placeholder="Choose a worker..." />
+                <SelectValue placeholder="Choose a technician..." />
               </SelectTrigger>
               <SelectContent>
                 {staffMembers?.map((staff) => (
@@ -187,9 +183,9 @@ export default function ClockPage() {
           {selectedStaffId && (
             <div className="flex justify-center gap-2">
               {activeEntry ? (
-                <Badge className="bg-black text-white px-4 py-1 text-[10px] font-black uppercase rounded-none">On-Duty Since {new Date(activeEntry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Badge>
+                <Badge className="bg-black text-white px-4 py-1 text-[10px] font-black uppercase rounded-none">Technician On-Duty</Badge>
               ) : (
-                <Badge variant="outline" className="px-4 py-1 text-[10px] font-black uppercase rounded-none border-2 border-black">Currently Off-Duty</Badge>
+                <Badge variant="outline" className="px-4 py-1 text-[10px] font-black uppercase rounded-none border-2 border-black">Technician Off-Duty</Badge>
               )}
             </div>
           )}
@@ -227,13 +223,13 @@ export default function ClockPage() {
             className="w-full h-16 text-lg font-black bg-black text-white rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] hover:bg-black/90 disabled:opacity-30 uppercase" 
             onClick={handleManualRecordSave}
           >
-            <Save className="mr-2 h-6 w-6" /> SAVE COMPLETED SHIFT
+            <Save className="mr-2 h-6 w-6" /> SAVE SHIFT LOG
           </Button>
           
           <div className="p-4 border-2 border-black border-dashed bg-muted/10 text-center space-y-1">
             <History className="h-5 w-5 mx-auto opacity-30 text-black" />
             <p className="text-[9px] font-black uppercase text-muted-foreground">
-              This terminal is for creating historical or missing attendance records. For real-time monitoring, visit the dashboard.
+              AUTHORIZED PERSONNEL ONLY: This terminal is for administrative attendance tracking. 
             </p>
           </div>
         </CardContent>
@@ -241,3 +237,4 @@ export default function ClockPage() {
     </div>
   )
 }
+import Link from "next/link"

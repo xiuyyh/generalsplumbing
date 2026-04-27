@@ -13,7 +13,8 @@ import {
   ListChecks,
   ChevronDown,
   Hammer,
-  UserCog
+  UserCog,
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -149,17 +150,27 @@ export function AppSidebar() {
               <>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/staff"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/staff"><Users /><span>Staff</span></Link>
+                    <Link href="/staff"><Users /><span>Staff Registry</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/clock"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/clock"><Clock /><span>Attendance Terminal</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/timesheets"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/timesheets"><History /><span>Timesheet Audit</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/admin/users"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/admin/users"><UserCog /><span>Users</span></Link>
+                    <Link href="/admin/users"><UserCog /><span>User Authorization</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/settings"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/settings"><Settings /><span>Settings</span></Link>
+                    <Link href="/settings"><Settings /><span>System Settings</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </>

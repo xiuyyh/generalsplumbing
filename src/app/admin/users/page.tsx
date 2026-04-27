@@ -1,0 +1,145 @@
+
+"use client"
+
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, doc, query, orderBy } from "firebase/firestore"
+import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+} from "@/components/ui/card"
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { UserCog, Loader2, Check, X, Shield, Trash2 } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+
+const ROLES = ["ADMIN", "PUNCH_LIST", "INVENTORY", "WORKER"]
+
+export default function UserManagementPage() {
+  const { user } = useUser()
+  const firestore = useFirestore()
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return query(collection(firestore, "users"), orderBy("createdAt", "desc"))
+  }, [firestore, user])
+  const { data: users, isLoading } = useCollection(usersQuery)
+
+  const handleUpdateRole = (uid: string, role: string) => {
+    if (!firestore) return
+    updateDocumentNonBlocking(doc(firestore, "users", uid), { role })
+    toast({ title: "Role Updated", description: `User role changed to ${role}` })
+  }
+
+  const handleApprove = (uid: string) => {
+    if (!firestore) return
+    updateDocumentNonBlocking(doc(firestore, "users", uid), { status: "approved" })
+    toast({ title: "User Approved", description: "Access granted to the system." })
+  }
+
+  const handleReject = (uid: string) => {
+    if (!firestore) return
+    updateDocumentNonBlocking(doc(firestore, "users", uid), { status: "rejected" })
+    toast({ variant: "destructive", title: "User Rejected", description: "Access denied." })
+  }
+
+  const handleDelete = (uid: string) => {
+    if (!firestore) return
+    if (window.confirm("PERMANENT REMOVAL: Delete this user profile?")) {
+      deleteDocumentNonBlocking(doc(firestore, "users", uid))
+      toast({ variant: "destructive", title: "User Deleted" })
+    }
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-4xl font-black uppercase tracking-tighter flex items-center gap-3">
+          <UserCog className="h-10 w-10" /> User Management
+        </h1>
+        <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Authorize Personnel Access</p>
+      </div>
+
+      <Card className="border-4 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-black">
+              <TableRow className="hover:bg-black">
+                <TableHead className="text-white font-black uppercase text-xs">User</TableHead>
+                <TableHead className="text-white font-black uppercase text-xs">Status</TableHead>
+                <TableHead className="text-white font-black uppercase text-xs">Role Assignment</TableHead>
+                <TableHead className="text-white font-black uppercase text-xs text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users?.map((u) => (
+                <TableRow key={u.uid} className="border-b-2 border-black/10 hover:bg-muted/50">
+                  <TableCell>
+                    <div className="font-black uppercase text-xs">{u.displayName}</div>
+                    <div className="text-[9px] font-bold text-muted-foreground">{u.email}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={cn(
+                      "rounded-none font-black uppercase text-[8px] px-2 py-0 h-5",
+                      u.status === 'approved' ? 'bg-green-600' : u.status === 'pending' ? 'bg-amber-500' : 'bg-red-600'
+                    )}>
+                      {u.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Select defaultValue={u.role} onValueChange={(val) => handleUpdateRole(u.uid, val)}>
+                      <SelectTrigger className="h-8 border-2 border-black rounded-none font-black text-[10px] uppercase w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map(role => (
+                          <SelectItem key={role} value={role} className="font-black text-[10px] uppercase">{role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      {u.status === 'pending' && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleApprove(u.uid)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleReject(u.uid)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive border-2 border-transparent hover:border-black rounded-none" onClick={() => handleDelete(u.uid)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

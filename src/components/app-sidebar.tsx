@@ -13,11 +13,17 @@ import {
   LogOut,
   Settings,
   ListChecks,
+  ChevronRight,
+  ChevronDown,
+  Hammer,
+  UserCog
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useUser, useAuth } from "@/firebase"
+import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import { signOut } from "firebase/auth"
+import { doc } from "firebase/firestore"
+import { cn } from "@/lib/utils"
 
 import {
   Sidebar,
@@ -32,59 +38,22 @@ import {
   SidebarRail,
   SidebarFooter,
 } from "@/components/ui/sidebar"
-
-const menuItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Attendance",
-    url: "/clock",
-    icon: Clock,
-  },
-  {
-    title: "Staff Management",
-    url: "/staff",
-    icon: Users,
-  },
-  {
-    title: "Punch List",
-    url: "/punch-list",
-    icon: ListChecks,
-  },
-  {
-    title: "Timesheets",
-    url: "/timesheets",
-    icon: FileText,
-  },
-  {
-    title: "Inventory Catalog",
-    url: "/inventory",
-    icon: Package,
-  },
-  {
-    title: "Dispatch Log",
-    url: "/dispatch",
-    icon: Truck,
-  },
-  {
-    title: "Usage Analytics",
-    url: "/analytics",
-    icon: History,
-  },
-  {
-    title: "System Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-]
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { user } = useUser()
   const auth = useAuth()
+  const firestore = useFirestore()
+  
+  const userRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return doc(firestore, "users", user.uid)
+  }, [firestore, user])
+  const { data: profile } = useDoc(userRef)
+
+  const role = profile?.role || "WORKER"
+  const isApproved = profile?.status === "approved"
 
   if (!user || pathname === "/auth") {
     return null
@@ -98,6 +67,11 @@ export function AppSidebar() {
     }
   }
 
+  const isAdmin = role === "ADMIN"
+  const canAccessInventory = isAdmin || role === "INVENTORY"
+  const canAccessPunch = isAdmin || role === "PUNCH_LIST"
+  const canAccessRequests = isApproved // All approved users can see requests
+
   return (
     <Sidebar collapsible="icon" className="border-r-4 border-black">
       <SidebarHeader className="h-12 flex items-center px-3 border-b-4 border-black bg-black text-white shrink-0 overflow-hidden transition-all">
@@ -108,29 +82,91 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent className="bg-white">
+        {!isApproved && (
+          <div className="p-4 m-2 bg-amber-50 border-2 border-amber-200 text-[10px] font-black uppercase text-amber-800 leading-tight">
+            Account Pending Approval
+          </div>
+        )}
+
         <SidebarGroup className="p-1">
           <SidebarGroupLabel className="font-black uppercase text-[9px] tracking-widest text-muted-foreground mb-1 px-3 group-data-[collapsible=icon]:hidden">
-            Operations
+            Terminal
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                    className="h-10 px-3 rounded-none font-black uppercase text-[11px] tracking-wider data-[active=true]:bg-black data-[active=true]:text-white transition-all hover:bg-muted/80"
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
-                    </Link>
+          <SidebarMenu>
+            {isAdmin && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                  <Link href="/"><LayoutDashboard /><span>Dashboard</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {canAccessRequests && (
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="h-10 rounded-none font-black uppercase text-[11px]">
+                      <Hammer />
+                      <span>Request Materials</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="pl-4 border-l-2 border-black ml-4 mt-1 space-y-1">
+                      {["Rough", "Underslab", "Final"].map((cat) => (
+                        <SidebarMenuButton key={cat} asChild isActive={pathname === `/requests/${cat.toLowerCase()}`} className="h-8 rounded-none font-black uppercase text-[10px]">
+                          <Link href={`/requests/${cat.toLowerCase()}`}>{cat}</Link>
+                        </SidebarMenuButton>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            )}
+
+            {canAccessPunch && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/punch-list"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                  <Link href="/punch-list"><ListChecks /><span>Punch List</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {canAccessInventory && (
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/inventory"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/inventory"><Package /><span>Inventory</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/dispatch"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/dispatch"><Truck /><span>Dispatch</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
+            )}
+
+            {isAdmin && (
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/staff"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/staff"><Users /><span>Staff</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/admin/users"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/admin/users"><UserCog /><span>Users</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/settings"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/settings"><Settings /><span>Settings</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
+            )}
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
@@ -139,7 +175,6 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}
-              tooltip="Terminate Session"
               className="w-full h-10 flex items-center justify-start gap-3 px-3 font-black uppercase text-[11px] tracking-wider text-destructive hover:bg-destructive hover:text-white transition-all rounded-none border-4 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
               <LogOut className="h-5 w-5 shrink-0" />

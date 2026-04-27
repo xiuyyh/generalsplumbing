@@ -1,22 +1,20 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
-import { doc } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogIn, ShieldCheck, Loader2, ArrowLeft, Lock, UserPlus } from "lucide-react"
+import { LogIn, ShieldCheck, Loader2, ArrowLeft, UserPlus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -27,6 +25,7 @@ export default function AuthPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [displayName, setDisplayName] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
   // Fetch signup settings
@@ -36,18 +35,26 @@ export default function AuthPage() {
   }, [firestore])
   const { data: authSettings, isLoading: isSettingsLoading } = useDoc(settingsRef)
 
-  // Redirect and auto-promote to admin if logged in
   useEffect(() => {
     if (user && firestore && !isUserLoading) {
-      const adminRef = doc(firestore, "roles_admin", user.uid)
-      setDocumentNonBlocking(adminRef, { 
-        assignedAt: new Date().toISOString(),
-        email: user.email 
-      }, { merge: true })
+      const userRef = doc(firestore, "users", user.uid)
       
-      router.push("/")
+      // Initialize profile if it doesn't exist
+      getDoc(userRef).then((snap) => {
+        if (!snap.exists()) {
+          setDocumentNonBlocking(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: displayName || user.email?.split('@')[0] || "New User",
+            status: "pending",
+            role: "WORKER",
+            createdAt: new Date().toISOString()
+          }, { merge: true })
+        }
+        router.push("/")
+      })
     }
-  }, [user, firestore, isUserLoading, router])
+  }, [user, firestore, isUserLoading, router, displayName])
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,7 +144,19 @@ export default function AuthPage() {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email-signup" className="font-black uppercase text-xs">Create Email</Label>
+                    <Label htmlFor="name-signup" className="font-black uppercase text-xs">Full Name</Label>
+                    <Input 
+                      id="name-signup" 
+                      type="text" 
+                      placeholder="John Doe" 
+                      required 
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="border-2 border-black rounded-none h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-signup" className="font-black uppercase text-xs">Email</Label>
                     <Input 
                       id="email-signup" 
                       type="email" 
@@ -149,7 +168,7 @@ export default function AuthPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password-signup" className="font-black uppercase text-xs">Secure Password</Label>
+                    <Label htmlFor="password-signup" className="font-black uppercase text-xs">Password</Label>
                     <Input 
                       id="password-signup" 
                       type="password" 
@@ -164,7 +183,7 @@ export default function AuthPage() {
                     disabled={isProcessing}
                     className="w-full h-16 text-xl font-black bg-black text-white rounded-none shadow-[1px_1px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all uppercase"
                   >
-                    {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Create Admin</>}
+                    {isProcessing ? <Loader2 className="animate-spin h-6 w-6" /> : <><UserPlus className="mr-2 h-6 w-6" /> Register Account</>}
                   </Button>
                 </form>
               </TabsContent>
@@ -174,8 +193,8 @@ export default function AuthPage() {
           <div className="mt-6 p-4 bg-muted/20 border-2 border-black border-dashed">
             <p className="text-[9px] text-center font-black uppercase text-muted-foreground leading-tight">
               {signupDisabled 
-                ? "Public registration is currently restricted. Existing admins only."
-                : "New accounts created here are automatically granted administrative privileges."}
+                ? "Public registration is restricted. Approved users only."
+                : "New accounts require administrative approval before accessing the terminal."}
             </p>
           </div>
         </CardContent>

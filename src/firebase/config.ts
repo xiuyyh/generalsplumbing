@@ -1,8 +1,9 @@
 export const firebaseConfig = {
-  "projectId": "studio-534017095-a33ca",
-  "appId": "1:731667670429:web:fe4ae943ea44c553f83b74",
-  "apiKey": "AIzaSyAMzfA428_YPw_nBaqrz_nl0jYg_WP4K_s",
-  "authDomain": "studio-534017095-a33ca.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "731667670429"
+  apiKey: "AIzaSyCskjNKLf0HUH5U2ZU-UcY6f6mGho__U24",
+  authDomain: "ai-video-platform-5a456.firebaseapp.com",
+  projectId: "ai-video-platform-5a456",
+  storageBucket: "ai-video-platform-5a456.firebasestorage.app",
+  messagingSenderId: "328657911625",
+  appId: "1:328657911625:web:3da12a6e735461efaf2498",
+  measurementId: "G-38YQ6X6K8K"
 };

@@ -1,10 +1,10 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, useStorage } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
-import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { useRouter } from "next/navigation"
 import { 
   Card, 
@@ -31,7 +31,6 @@ import {
   Calendar, 
   CheckCircle2, 
   AlertCircle, 
-  Bell, 
   Trash2, 
   Upload,
   X,
@@ -40,16 +39,16 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
-import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
-import { uploadToCloudinary } from "./upload-action"
 import Link from "next/link"
 
 export default function PunchListPage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
+  const storage = useStorage()
   const router = useRouter()
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -64,12 +63,6 @@ export default function PunchListPage() {
     return query(collection(firestore, "punchLists"), orderBy("createdAt", "desc"))
   }, [firestore, user])
   const { data: punchItems, isLoading } = useCollection(punchQuery)
-
-  const settingsRef = useMemoFirebase(() => {
-    if (!firestore) return null
-    return doc(firestore, "appSettings", "telegram")
-  }, [firestore])
-  const { data: telegramSettings } = useDoc(settingsRef)
 
   const getStatusInfo = (item: any) => {
     if (item.status === 'completed') return { color: "bg-green-500", label: "Completed" }
@@ -86,9 +79,10 @@ export default function PunchListPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setSelectedFile(file)
       const reader = new FileReader()
       reader.onloadend = () => {
-        setCapturedPhoto(reader.result as string)
+        setPreviewUrl(reader.result as string)
       }
       reader.readAsDataURL(file)
     }
@@ -96,20 +90,22 @@ export default function PunchListPage() {
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!firestore || isSubmitting) return
+    if (!firestore || !storage || isSubmitting) return
     setIsSubmitting(true)
 
     const formData = new FormData(e.currentTarget)
     let photoUrl = null
 
-    if (capturedPhoto) {
+    if (selectedFile) {
       try {
-        const uploadResult = await uploadToCloudinary(capturedPhoto)
-        photoUrl = uploadResult.url
+        const storageRef = ref(storage, `punchLists/${Date.now()}_${selectedFile.name}`)
+        const snapshot = await uploadBytes(storageRef, selectedFile)
+        photoUrl = await getDownloadURL(snapshot.ref)
       } catch (err) {
+        console.error("Storage upload failure:", err)
         toast({ 
           variant: "destructive", 
-          title: "Cloudinary Sync Error", 
+          title: "Storage Error", 
           description: "Image upload failed. Storing metadata only." 
         })
       }
@@ -126,7 +122,8 @@ export default function PunchListPage() {
 
     addDocumentNonBlocking(collection(firestore, "punchLists"), data)
     setIsAddOpen(false)
-    setCapturedPhoto(null)
+    setSelectedFile(null)
+    setPreviewUrl(null)
     setIsSubmitting(false)
     toast({ title: "Task Submitted", description: "Punch list item added." })
   }
@@ -184,15 +181,18 @@ export default function PunchListPage() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                 />
-                {capturedPhoto ? (
+                {previewUrl ? (
                   <div className="relative border-4 border-black aspect-video bg-muted">
-                    <img src={capturedPhoto} alt="Preview" className="w-full h-full object-cover" />
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                     <Button 
                       type="button" 
                       size="icon" 
                       variant="destructive" 
                       className="absolute top-2 right-2 rounded-none" 
-                      onClick={() => setCapturedPhoto(null)}
+                      onClick={() => {
+                        setSelectedFile(null)
+                        setPreviewUrl(null)
+                      }}
                     >
                       <X className="h-4 w-4" />
                     </Button>

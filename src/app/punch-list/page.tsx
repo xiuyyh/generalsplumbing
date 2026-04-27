@@ -146,7 +146,7 @@ export default function PunchListPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">Punch List Registry</h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Punch List</h1>
           <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Site Deficiency & Task Management</p>
         </div>
         

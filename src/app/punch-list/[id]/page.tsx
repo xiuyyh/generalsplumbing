@@ -1,10 +1,12 @@
 
 "use client"
 
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
+import { useUser, useFirestore, useDoc, useMemoFirebase, useStorage } from "@/firebase"
 import { doc } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter, useParams } from "next/navigation"
+import { useState, useRef } from "react"
 import { 
   Card, 
   CardContent, 
@@ -25,7 +27,9 @@ import {
   Clock,
   ExternalLink,
   History,
-  ImageIcon
+  ImageIcon,
+  PlusCircle,
+  Image as ImageIconLucide
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
@@ -36,9 +40,12 @@ import Image from "next/image"
 export default function PunchListDetailPage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
+  const storage = useStorage()
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const docRef = useMemoFirebase(() => {
     if (!firestore || !id) return null
@@ -101,6 +108,30 @@ export default function PunchListDetailPage() {
     }
   }
 
+  const handleAddImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !firestore || !storage || !item) return
+
+    setIsUploading(true)
+    try {
+      const storageRef = ref(storage, `punchLists/${Date.now()}_${file.name}`)
+      const snapshot = await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(snapshot.ref)
+
+      const existingUrls = item.photoUrls || (item.photoUrl ? [item.photoUrl] : [])
+      updateDocumentNonBlocking(doc(firestore, "punchLists", id), {
+        photoUrls: [...existingUrls, url]
+      })
+
+      toast({ title: "Image Added", description: "New site documentation attached." })
+    } catch (err) {
+      console.error("Upload error:", err)
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not save additional photo." })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   if (isUserLoading || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -121,6 +152,7 @@ export default function PunchListDetailPage() {
   }
 
   const status = getStatusInfo(item)
+  const allPhotos = item.photoUrls || (item.photoUrl ? [item.photoUrl] : [])
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -215,22 +247,43 @@ export default function PunchListDetailPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-5">
-          <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white h-fit sticky top-20">
-            <CardHeader className="bg-black text-white py-2">
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+            <CardHeader className="bg-black text-white py-2 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
-                <ExternalLink className="h-3 w-3" /> Photographic Evidence
+                <ImageIconLucide className="h-3 w-3" /> Site Documentation
               </CardTitle>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleAddImage}
+              />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="h-7 text-[9px] bg-white text-black font-black border-2 border-black rounded-none hover:bg-muted"
+              >
+                {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlusCircle className="h-3 w-3 mr-1" />}
+                ADD PHOTO
+              </Button>
             </CardHeader>
             <CardContent className="p-2">
-              {item.photoUrl ? (
-                <div className="relative aspect-square border-2 border-black bg-muted overflow-hidden">
-                  <Image 
-                    src={item.photoUrl} 
-                    alt="Task evidence" 
-                    fill
-                    className="object-cover"
-                  />
+              {allPhotos.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {allPhotos.map((url: string, index: number) => (
+                    <div key={index} className="relative aspect-square border-2 border-black bg-muted overflow-hidden">
+                      <Image 
+                        src={url} 
+                        alt={`Evidence ${index + 1}`} 
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="aspect-square flex flex-col items-center justify-center bg-muted border-2 border-black border-dashed opacity-30">

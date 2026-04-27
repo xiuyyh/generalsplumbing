@@ -80,7 +80,11 @@
         "address": { "type": "string" },
         "status": { "type": "string", "enum": ["submitted", "completed"] },
         "completedAt": { "type": "string", "format": "date-time" },
-        "photoUrl": { "type": "string", "description": "Data URI of the attached photo." },
+        "photoUrls": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "URLs of attached photos in Firebase Storage." 
+        },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["description", "dueDate", "address", "status"]

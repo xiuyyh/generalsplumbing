@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, useStorage } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useStorage } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -35,11 +36,13 @@ import {
   Upload,
   X,
   FileImage,
-  ArrowRight
+  ArrowRight,
+  PlusCircle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function PunchListPage() {
   const { user, isUserLoading } = useUser()
@@ -47,8 +50,8 @@ export default function PunchListPage() {
   const storage = useStorage()
   const router = useRouter()
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -77,15 +80,23 @@ export default function PunchListPage() {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files])
+      
+      files.forEach(file => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setPreviews(prev => [...prev, reader.result as string])
+        }
+        reader.readAsDataURL(file)
+      })
     }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+    setPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -94,19 +105,22 @@ export default function PunchListPage() {
     setIsSubmitting(true)
 
     const formData = new FormData(e.currentTarget)
-    let photoUrl = null
+    const photoUrls: string[] = []
 
-    if (selectedFile) {
+    if (selectedFiles.length > 0) {
       try {
-        const storageRef = ref(storage, `punchLists/${Date.now()}_${selectedFile.name}`)
-        const snapshot = await uploadBytes(storageRef, selectedFile)
-        photoUrl = await getDownloadURL(snapshot.ref)
+        for (const file of selectedFiles) {
+          const storageRef = ref(storage, `punchLists/${Date.now()}_${file.name}`)
+          const snapshot = await uploadBytes(storageRef, file)
+          const url = await getDownloadURL(snapshot.ref)
+          photoUrls.push(url)
+        }
       } catch (err) {
         console.error("Storage upload failure:", err)
         toast({ 
           variant: "destructive", 
           title: "Storage Error", 
-          description: "Image upload failed. Storing metadata only." 
+          description: "One or more image uploads failed." 
         })
       }
     }
@@ -116,14 +130,14 @@ export default function PunchListPage() {
       dueDate: new Date(formData.get("dueDate") as string).toISOString(),
       address: formData.get("address") as string,
       status: "submitted",
-      photoUrl: photoUrl,
+      photoUrls: photoUrls,
       createdAt: new Date().toISOString()
     }
 
     addDocumentNonBlocking(collection(firestore, "punchLists"), data)
     setIsAddOpen(false)
-    setSelectedFile(null)
-    setPreviewUrl(null)
+    setSelectedFiles([])
+    setPreviews([])
     setIsSubmitting(false)
     toast({ title: "Task Submitted", description: "Punch list item added." })
   }
@@ -152,7 +166,7 @@ export default function PunchListPage() {
               <Plus className="mr-2 h-5 w-5" /> CREATE PUNCH TASK
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] border-4 border-black rounded-none">
+          <DialogContent className="sm:max-w-[500px] border-4 border-black rounded-none max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleCreate} className="space-y-4 py-4">
               <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Add Deficiency Record</DialogTitle></DialogHeader>
               
@@ -177,36 +191,37 @@ export default function PunchListPage() {
                 <input 
                   type="file" 
                   accept="image/*" 
+                  multiple
                   className="hidden" 
                   ref={fileInputRef}
                   onChange={handleFileChange}
                 />
-                {previewUrl ? (
-                  <div className="relative border-4 border-black aspect-video bg-muted">
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <Button 
-                      type="button" 
-                      size="icon" 
-                      variant="destructive" 
-                      className="absolute top-2 right-2 rounded-none" 
-                      onClick={() => {
-                        setSelectedFile(null)
-                        setPreviewUrl(null)
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
+                
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {previews.map((url, index) => (
+                    <div key={index} className="relative border-2 border-black aspect-square bg-muted overflow-hidden">
+                      <Image src={url} alt={`Preview ${index}`} fill className="object-cover" />
+                      <Button 
+                        type="button" 
+                        size="icon" 
+                        variant="destructive" 
+                        className="absolute top-1 right-1 h-6 w-6 rounded-none p-0" 
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                   <Button 
                     type="button" 
                     variant="outline" 
-                    className="w-full border-2 border-black border-dashed h-20 rounded-none font-black uppercase" 
+                    className="border-2 border-black border-dashed aspect-square h-auto flex flex-col items-center justify-center gap-2 rounded-none hover:bg-muted" 
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Upload className="mr-2 h-6 w-6" /> Upload Site Photo
+                    <PlusCircle className="h-6 w-6" />
+                    <span className="text-[10px] font-black uppercase">Add Photo</span>
                   </Button>
-                )}
+                </div>
               </div>
 
               <DialogFooter>
@@ -225,6 +240,7 @@ export default function PunchListPage() {
         ) : (
           punchItems?.map((item) => {
             const status = getStatusInfo(item)
+            const mainPhoto = item.photoUrls && item.photoUrls.length > 0 ? item.photoUrls[0] : item.photoUrl
             return (
               <Card key={item.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] overflow-hidden hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
                 <div className="flex flex-col md:flex-row">
@@ -258,9 +274,9 @@ export default function PunchListPage() {
                       </div>
                     </div>
                   </CardContent>
-                  {item.photoUrl && (
+                  {mainPhoto && (
                     <div className="relative w-full md:w-24 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-black bg-muted overflow-hidden">
-                      <img src={item.photoUrl} alt="Task visual" className="w-full h-full object-cover" />
+                      <Image src={mainPhoto} alt="Task visual" fill className="object-cover" />
                     </div>
                   )}
                 </div>

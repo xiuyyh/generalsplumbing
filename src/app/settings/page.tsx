@@ -147,7 +147,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <Button type="submit" disabled={isSaving} className="w-full h-12 bg-black text-white font-black uppercase rounded-none border-2 border-black">
-                {isSaving ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> Update Notification Bridge</>}
+                {isSaving ? <Loader2 className="animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> UPDATE</>}
               </Button>
             </form>
           </CardContent>

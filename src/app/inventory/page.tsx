@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -91,7 +90,6 @@ export default function InventoryPage() {
       name: formData.get("name") as string,
       currentStock: Number(formData.get("currentStock")),
       reorderThreshold: Number(formData.get("reorderThreshold")),
-      pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
     }
 
     addDocumentNonBlocking(collection(firestore, "inventoryItems"), newItem)
@@ -111,7 +109,6 @@ export default function InventoryPage() {
     const updatedData = {
       name: formData.get("name") as string,
       reorderThreshold: Number(formData.get("reorderThreshold")),
-      pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
     }
 
     const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
@@ -202,10 +199,6 @@ export default function InventoryPage() {
                     <Label htmlFor="reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
                     <Input id="reorderThreshold" name="reorderThreshold" type="number" defaultValue="5" required className="border-2 border-black rounded-none h-10 font-bold" />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pricePerUnit" className="text-xs font-black uppercase">Price Per Unit</Label>
-                  <Input id="pricePerUnit" name="pricePerUnit" type="number" step="0.01" defaultValue="0" className="border-2 border-black rounded-none h-10 font-bold" />
                 </div>
               </div>
               <DialogFooter>
@@ -339,10 +332,6 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 <Label htmlFor="edit-reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
                 <Input id="edit-reorderThreshold" name="reorderThreshold" type="number" defaultValue={selectedItem?.reorderThreshold} required className="border-2 border-black rounded-none h-10 font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-pricePerUnit" className="text-xs font-black uppercase">Price Per Unit</Label>
-                <Input id="edit-pricePerUnit" name="pricePerUnit" type="number" step="0.01" defaultValue={selectedItem?.pricePerUnit} className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
             </div>
             <DialogFooter>

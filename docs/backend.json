@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "StaffMember": {
@@ -56,8 +55,7 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "currentStock": { "type": "number" },
-        "reorderThreshold": { "type": "number" },
-        "pricePerUnit": { "type": "number" }
+        "reorderThreshold": { "type": "number" }
       },
       "required": ["id", "name", "currentStock"]
     },

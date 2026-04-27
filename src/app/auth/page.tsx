@@ -14,9 +14,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogIn, ShieldCheck, Loader2, ArrowLeft, UserPlus } from "lucide-react"
+import { LogIn, ShieldCheck, Loader2, ArrowLeft, UserPlus, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
 
 export default function AuthPage() {
   const { user, isUserLoading } = useUser()
@@ -25,7 +26,9 @@ export default function AuthPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [displayName, setDisplayName] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
 
   // Fetch signup settings
@@ -80,8 +83,20 @@ export default function AuthPage() {
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Password Mismatch",
+        description: "The passwords entered do not match."
+      })
+      return
+    }
     setIsProcessing(true)
     initiateEmailSignUp(auth, email, password)
+  }
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
   }
 
   if (isUserLoading || isSettingsLoading) {
@@ -137,14 +152,23 @@ export default function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password-signin" className="font-black uppercase text-xs">Password</Label>
-                  <Input 
-                    id="password-signin" 
-                    type="password" 
-                    required 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-2 border-black rounded-none h-12"
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="password-signin" 
+                      type={showPassword ? "text" : "password"} 
+                      required 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="border-2 border-black rounded-none h-12 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-black"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                 </div>
                 <Button 
                   type="submit" 
@@ -185,12 +209,32 @@ export default function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password-signup" className="font-black uppercase text-xs">Password</Label>
+                    <div className="relative">
+                      <Input 
+                        id="password-signup" 
+                        type={showPassword ? "text" : "password"} 
+                        required 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="border-2 border-black rounded-none h-12 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={togglePasswordVisibility}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-black"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password-signup" className="font-black uppercase text-xs">Confirm Password</Label>
                     <Input 
-                      id="password-signup" 
-                      type="password" 
+                      id="confirm-password-signup" 
+                      type={showPassword ? "text" : "password"} 
                       required 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       className="border-2 border-black rounded-none h-12"
                     />
                   </div>

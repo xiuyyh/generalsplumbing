@@ -69,7 +69,7 @@ export function AppSidebar() {
 
   const canAccessInventory = isAdmin || role === "INVENTORY"
   const canAccessPunch = isAdmin || role === "PUNCH_LIST"
-  const canAccessRequests = isApproved // All approved users/admins can see requests
+  const canAccessRequests = isAdmin || role === "WORKER"
 
   return (
     <Sidebar collapsible="icon" className="border-r-4 border-black">

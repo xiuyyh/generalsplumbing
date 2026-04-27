@@ -42,12 +42,13 @@ export default function RequestCategoryPage() {
   const categoryStr = (params.category as string) || ""
   const category = categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)
   
-  const [selectedItemId, setSelectedItemId] = useState("")
+  const [selectedItemId] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [address, setAddress] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inventorySearch, setInventorySearch] = useState("")
   const [openPicker, setOpenPicker] = useState(false)
+  const [selectedItemIdInternal, setSelectedItemIdInternal] = useState("")
 
   const userRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -78,13 +79,14 @@ export default function RequestCategoryPage() {
   const role = profile?.role || "WORKER"
   const isAdmin = role === "ADMIN"
   const isApproved = profile?.status === "approved" || isAdmin
+  const canAccess = isAdmin || role === "WORKER"
 
-  if (!isApproved) {
+  if (!isApproved || !canAccess) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-4">
         <ShieldAlert className="h-16 w-16 mx-auto text-black" />
         <h2 className="text-2xl font-black uppercase tracking-tighter">Access Denied</h2>
-        <p className="text-muted-foreground font-bold">Your account is awaiting approval. Once approved, you will be able to submit material requests.</p>
+        <p className="text-muted-foreground font-bold">Your account is not authorized to access the material request portal.</p>
         <Button asChild variant="outline" className="border-2 border-black rounded-none uppercase font-black">
           <Link href="/">Return to Terminal</Link>
         </Button>
@@ -97,19 +99,19 @@ export default function RequestCategoryPage() {
     item.name.toLowerCase().includes(inventorySearch.toLowerCase())
   ) || []
 
-  const handleSubmit = async (e: React.Form) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!firestore || !user || isSubmitting || !selectedItemId || !address) return
+    if (!firestore || !user || isSubmitting || !selectedItemIdInternal || !address) return
     setIsSubmitting(true)
 
-    const item = inventoryItems?.find(i => i.id === selectedItemId)
+    const item = inventoryItems?.find(i => i.id === selectedItemIdInternal)
 
     try {
       await addDoc(collection(firestore, "materialRequests"), {
         workerUid: user.uid,
         workerName: profile?.displayName || user.email || "Unknown Worker",
         category,
-        itemId: selectedItemId,
+        itemId: selectedItemIdInternal,
         itemName: item?.name || "Unknown Item",
         quantity: Number(quantity),
         deliveryAddress: address,
@@ -119,7 +121,7 @@ export default function RequestCategoryPage() {
       })
 
       toast({ title: "Request Sent", description: `Your ${category} material request has been logged.` })
-      setSelectedItemId("")
+      setSelectedItemIdInternal("")
       setQuantity(1)
       setAddress("")
     } catch (err) {
@@ -174,7 +176,7 @@ export default function RequestCategoryPage() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between h-10 border-2 border-black rounded-none font-bold px-3">
                       <span className="truncate">
-                        {selectedItemId ? inventoryItems?.find(i => i.id === selectedItemId)?.name : "Search parts..."}
+                        {selectedItemIdInternal ? inventoryItems?.find(i => i.id === selectedItemIdInternal)?.name : "Search parts..."}
                       </span>
                       <Search className="h-4 w-4 opacity-50" />
                     </Button>
@@ -196,10 +198,10 @@ export default function RequestCategoryPage() {
                             variant="ghost"
                             className={cn(
                               "w-full justify-start text-xs font-bold rounded-none h-8 hover:bg-black hover:text-white transition-colors",
-                              selectedItemId === item.id && "bg-muted"
+                              selectedItemIdInternal === item.id && "bg-muted"
                             )}
                             onClick={() => {
-                              setSelectedItemId(item.id)
+                              setSelectedItemIdInternal(item.id)
                               setOpenPicker(false)
                             }}
                           >
@@ -228,7 +230,7 @@ export default function RequestCategoryPage() {
                 <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full site address" className="h-10 border-2 border-black rounded-none font-bold" />
               </div>
 
-              <Button type="submit" disabled={isSubmitting || !selectedItemId || !address} className="w-full h-14 bg-black text-white font-black text-lg uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all rounded-none">
+              <Button type="submit" disabled={isSubmitting || !selectedItemIdInternal || !address} className="w-full h-14 bg-black text-white font-black text-lg uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all rounded-none">
                 {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />} SUBMIT REQUEST
               </Button>
             </form>
@@ -269,7 +271,7 @@ export default function RequestCategoryPage() {
                           {req.deliveryTime && <div className="text-[8px] font-black mt-1 uppercase">{new Date(req.deliveryTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>}
                         </TableCell>
                         <TableCell className="text-right">
-                          {req.status === 'pending' && (profile?.role === 'ADMIN' || profile?.role === 'INVENTORY') && (
+                          {req.status === 'pending' && isAdmin && (
                             <Button size="sm" variant="outline" className="h-8 border-2 border-black rounded-none font-black uppercase text-[9px]" onClick={() => handleMarkDelivered(req.id)}>
                               <CheckCircle2 className="h-3 w-3 mr-1" /> DELIVERED
                             </Button>

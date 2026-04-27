@@ -6,7 +6,7 @@ const TELEGRAM_TOKEN = '8714326407:AAHIGnLwWrPO5Q5F5z7UVl-PLJMNUf6R2fM';
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 export interface TelegramMessageOptions {
-  chatId: string;
+  chatId: string | number;
   text: string;
   parseMode?: 'HTML' | 'MarkdownV2';
 }
@@ -20,8 +20,10 @@ export async function sendTelegramMessage({ chatId, text, parseMode = 'HTML' }: 
     return null;
   }
 
-  // Ensure Chat ID is a string and trimmed
-  const targetChatId = chatId.trim();
+  // Ensure Chat ID is processed correctly. 
+  // Numeric IDs should remain numeric in the JSON payload if possible, 
+  // but Telegram accepts strings for both usernames and numeric IDs.
+  const targetChatId = typeof chatId === 'string' ? chatId.trim() : chatId;
 
   try {
     const response = await fetch(`${BASE_URL}/sendMessage`, {
@@ -34,13 +36,13 @@ export async function sendTelegramMessage({ chatId, text, parseMode = 'HTML' }: 
       }),
     });
 
+    const result = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
-      // Include the Chat ID in the error for easier debugging of "chat not found"
-      throw new Error(`Telegram API Error: ${error.description || response.statusText} (ID: ${targetChatId})`);
+      throw new Error(`Telegram API Error: ${result.description || response.statusText} (Code: ${result.error_code}, ID: ${targetChatId})`);
     }
 
-    return await response.json();
+    return result;
   } catch (error) {
     console.error('Failed to send Telegram message:', error);
     throw error;

@@ -7,15 +7,25 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { sendTelegramMessage } from '@/services/telegram';
 
+/**
+ * Escapes characters that are reserved in HTML.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 const DispatchDetailSchema = z.object({
   itemName: z.string(),
   quantity: z.number(),
-  unit: z.string(),
+  unit: z.string().optional(),
   assignedTo: z.string(),
   purpose: z.string(),
   address: z.string(),
   notes: z.string().optional(),
-  chatId: z.string().describe('The Telegram Chat ID to send the notification to.'),
+  chatId: z.union([z.string(), z.number()]).describe('The Telegram Chat ID to send the notification to.'),
 });
 
 export type DispatchNotificationInput = z.infer<typeof DispatchDetailSchema>;
@@ -31,15 +41,23 @@ const sendTelegramNotificationTool = ai.defineTool(
     outputSchema: z.object({ success: z.boolean(), messageId: z.any() }),
   },
   async (input) => {
+    // Escape variables to prevent HTML parsing errors in Telegram
+    const escapedItem = escapeHtml(input.itemName);
+    const escapedTech = escapeHtml(input.assignedTo);
+    const escapedPurpose = escapeHtml(input.purpose);
+    const escapedAddress = escapeHtml(input.address);
+    const escapedNotes = input.notes ? escapeHtml(input.notes) : '';
+    const unit = input.unit ? escapeHtml(input.unit) : 'units';
+
     const message = `
 📦 <b>INVENTORY DISPATCH ALERT</b>
 ────────────────────
-<b>Item:</b> ${input.itemName}
-<b>Quantity:</b> ${input.quantity} ${input.unit}
-<b>Technician:</b> ${input.assignedTo}
-<b>Job Reference:</b> ${input.purpose}
-<b>Destination:</b> ${input.address}
-${input.notes ? `<b>Notes:</b> ${input.notes}` : ''}
+<b>Item:</b> ${escapedItem}
+<b>Quantity:</b> ${input.quantity} ${unit}
+<b>Technician:</b> ${escapedTech}
+<b>Job Category:</b> ${escapedPurpose}
+<b>Destination:</b> ${escapedAddress}
+${escapedNotes ? `<b>Notes:</b> ${escapedNotes}` : ''}
 ────────────────────
 <i>Generals Plumbing Management System</i>
     `.trim();
@@ -55,9 +73,6 @@ ${input.notes ? `<b>Notes:</b> ${input.notes}` : ''}
 
 /**
  * Flow to notify about a dispatch.
- * 
- * Note: This flow bypasses ai.generate() for standard notifications to avoid
- * dependency on LLM API keys for basic system alerts.
  */
 const notifyDispatchFlow = ai.defineFlow(
   {
@@ -66,7 +81,6 @@ const notifyDispatchFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean() }),
   },
   async (input) => {
-    // Call the notification tool directly to ensure delivery without requiring Gemini API keys
     const result = await sendTelegramNotificationTool(input);
     return { success: result.success };
   }

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "StaffMember": {
@@ -49,7 +50,6 @@
         "sku": { "type": "string" },
         "currentStock": { "type": "number" },
         "reorderThreshold": { "type": "number" },
-        "unitOfMeasure": { "type": "string" },
         "pricePerUnit": { "type": "number" }
       },
       "required": ["id", "name", "sku", "currentStock"]
@@ -68,6 +68,22 @@
         "deliveryAddress": { "type": "string" }
       },
       "required": ["id", "inventoryItemId", "quantity", "dispatchDateTime", "assignedToStaffMemberId"]
+    },
+    "PunchList": {
+      "title": "PunchList",
+      "type": "object",
+      "description": "A task or deficiency that needs to be addressed at a job site.",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["submitted", "completed"] },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "photoUrl": { "type": "string", "description": "Data URI of the attached photo." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "dueDate", "address", "status"]
     }
   },
   "auth": {
@@ -101,6 +117,10 @@
     "/inventoryDispatches/{inventoryDispatchId}": {
       "schema": "#/backend/entities/InventoryDispatch",
       "description": "Usage history."
+    },
+    "/punchLists/{punchListId}": {
+      "schema": "#/backend/entities/PunchList",
+      "description": "Job site deficiency tracking."
     }
   }
 }

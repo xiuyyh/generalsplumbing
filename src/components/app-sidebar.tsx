@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,6 +12,7 @@ import {
   Users,
   LogOut,
   Settings,
+  ListChecks,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -46,6 +48,11 @@ const menuItems = [
     title: "Staff Management",
     url: "/staff",
     icon: Users,
+  },
+  {
+    title: "Punch List",
+    url: "/punch-list",
+    icon: ListChecks,
   },
   {
     title: "Timesheets",

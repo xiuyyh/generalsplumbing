@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
@@ -19,7 +20,8 @@ import {
   ArrowUpRight, 
   AlertTriangle,
   History,
-  Loader2
+  Loader2,
+  ListChecks
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,6 +51,12 @@ export default function Dashboard() {
   }, [firestore, user])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
+  const punchListQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return collection(firestore, "punchLists")
+  }, [firestore, user])
+  const { data: punchLists } = useCollection(punchListQuery)
+
   const dispatchesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return collection(firestore, "inventoryDispatches")
@@ -62,11 +70,12 @@ export default function Dashboard() {
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
   const lowStock = inventoryItems?.filter(i => i.currentStock <= (i.reorderThreshold || 0)) || []
+  const activePunchTasks = punchLists?.filter(p => p.status !== 'completed') || []
 
   const stats = [
     { title: "Staff Records", value: staffMembers?.length || "0", icon: Users, color: "text-black" },
     { title: "Low Stock Items", value: lowStock.length.toString(), icon: AlertTriangle, color: "text-black" },
-    { title: "Total Dispatches", value: dispatches?.length || "0", icon: Truck, color: "text-black" },
+    { title: "Punch Tasks", value: activePunchTasks.length.toString(), icon: ListChecks, color: "text-black" },
     { title: "Inventory Items", value: inventoryItems?.length || "0", icon: Package, color: "text-black" },
   ]
 
@@ -177,7 +186,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex justify-between items-center">
                     <p className="text-[8px] font-black text-muted-foreground uppercase">Min: {item.reorderThreshold}</p>
-                    <p className="text-[8px] font-black text-black uppercase">{item.unitOfMeasure}</p>
+                    <p className="text-[8px] font-black text-black uppercase">IN STOCK</p>
                   </div>
                 </div>
               )) : (

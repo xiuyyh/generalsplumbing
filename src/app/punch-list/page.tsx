@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -33,8 +32,9 @@ import {
   AlertCircle, 
   Bell, 
   Trash2, 
-  Camera,
-  X
+  Upload,
+  X,
+  FileImage
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
@@ -47,11 +47,9 @@ export default function PunchListPage() {
   const firestore = useFirestore()
   const router = useRouter()
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
-  const [hasCameraPermission, setHasCameraPermission] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -83,41 +81,15 @@ export default function PunchListPage() {
     return { color: "bg-blue-500", label: "Submitted" }
   }
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      setHasCameraPermission(true)
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCapturedPhoto(reader.result as string)
       }
-      setIsCameraOpen(true)
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      toast({ variant: 'destructive', title: 'Camera Access Denied' })
+      reader.readAsDataURL(file)
     }
-  }
-
-  const capturePhoto = () => {
-    if (videoRef.current) {
-      const canvas = document.createElement("canvas")
-      canvas.width = videoRef.current.videoWidth
-      canvas.height = videoRef.current.videoHeight
-      const ctx = canvas.getContext("2d")
-      if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0)
-        setCapturedPhoto(canvas.toDataURL("image/jpeg"))
-        stopCamera()
-      }
-    }
-  }
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach(track => track.stop())
-      videoRef.current.srcObject = null
-    }
-    setIsCameraOpen(false)
   }
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -128,7 +100,6 @@ export default function PunchListPage() {
     const formData = new FormData(e.currentTarget)
     let photoUrl = null
 
-    // Upload to Cloudinary if photo captured
     if (capturedPhoto) {
       try {
         const uploadResult = await uploadToCloudinary(capturedPhoto)
@@ -233,16 +204,34 @@ export default function PunchListPage() {
 
               <div className="space-y-2">
                 <Label className="font-black uppercase text-[10px]">Visual Documentation</Label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
                 {capturedPhoto ? (
-                  <div className="relative border-4 border-black aspect-video">
-                    <img src={capturedPhoto} alt="Captured" className="w-full h-full object-cover" />
-                    <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 rounded-none" onClick={() => setCapturedPhoto(null)}>
+                  <div className="relative border-4 border-black aspect-video bg-muted">
+                    <img src={capturedPhoto} alt="Preview" className="w-full h-full object-cover" />
+                    <Button 
+                      type="button" 
+                      size="icon" 
+                      variant="destructive" 
+                      className="absolute top-2 right-2 rounded-none" 
+                      onClick={() => setCapturedPhoto(null)}
+                    >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ) : (
-                  <Button type="button" variant="outline" className="w-full border-2 border-black border-dashed h-20 rounded-none font-black uppercase" onClick={startCamera}>
-                    <Camera className="mr-2 h-6 w-6" /> Take Photo
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full border-2 border-black border-dashed h-20 rounded-none font-black uppercase" 
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-6 w-6" /> Upload Photo
                   </Button>
                 )}
               </div>
@@ -256,22 +245,6 @@ export default function PunchListPage() {
           </DialogContent>
         </Dialog>
       </div>
-
-      <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="max-w-2xl border-4 border-black rounded-none p-0 overflow-hidden bg-black">
-          <div className="relative aspect-video">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
-              <Button onClick={capturePhoto} className="h-16 w-16 rounded-full bg-white border-4 border-black hover:bg-white/90">
-                <div className="h-10 w-10 rounded-full border-4 border-black" />
-              </Button>
-              <Button onClick={stopCamera} variant="destructive" className="h-16 w-16 rounded-full border-4 border-black">
-                <X className="h-8 w-8" />
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-1 gap-4">
         {isLoading ? (

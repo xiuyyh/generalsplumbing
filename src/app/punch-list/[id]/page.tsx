@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
@@ -13,6 +12,7 @@ import {
   CardDescription 
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { 
   Loader2, 
   MapPin, 

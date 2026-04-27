@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -351,8 +350,18 @@ export default function DispatchPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="font-black uppercase text-[10px]">Reference / Job #</Label>
-              <Input name="purpose" required className="h-10 border-2 border-black rounded-none font-bold" />
+              <Label className="font-black uppercase text-[10px]">Job Phase / Category</Label>
+              <Select name="purpose" required>
+                <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold">
+                  <SelectValue placeholder="Select Phase..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ROUGH" className="font-bold">ROUGH</SelectItem>
+                  <SelectItem value="FINAL" className="font-bold">FINAL</SelectItem>
+                  <SelectItem value="UNDERSLAB" className="font-bold">UNDERSLAB</SelectItem>
+                  <SelectItem value="EXTRA (side job)" className="font-bold">EXTRA (side job)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="font-black uppercase text-[10px]">Delivery Address</Label>

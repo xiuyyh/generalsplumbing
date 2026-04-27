@@ -30,9 +30,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus } from "lucide-react"
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
+import { cn } from "@/lib/utils"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
@@ -42,6 +49,10 @@ export default function DispatchPage() {
   const [items, setItems] = useState([
     { id: Date.now(), inventoryItemId: "", quantity: 1 }
   ])
+  
+  // Search state for searchable item picker
+  const [inventorySearch, setInventorySearch] = useState("")
+  const [openPickerId, setOpenPickerId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -112,12 +123,19 @@ export default function DispatchPage() {
     const assignedStaff = staffMembers?.find(s => s.id === assignedToStaffMemberId);
     const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "Unknown";
 
+    // Validate that at least one item is selected
+    const selectedItems = items.filter(i => i.inventoryItemId)
+    if (selectedItems.length === 0) {
+      toast({ variant: "destructive", title: "Selection Error", description: "Please select at least one material to dispatch." })
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       const batch = writeBatch(firestore)
       const dispatchDataForNotification: any[] = []
 
-      for (const item of items) {
-        if (!item.inventoryItemId) continue
+      for (const item of selectedItems) {
         const dispatchRef = doc(collection(firestore, "inventoryDispatches"))
         const itemRef = doc(firestore, "inventoryItems", item.inventoryItemId)
         const inventoryItem = inventoryItems?.find(i => i.id === item.inventoryItemId)
@@ -179,6 +197,13 @@ export default function DispatchPage() {
 
   if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
+  const filteredInventory = (search: string) => {
+    if (!inventoryItems) return []
+    return inventoryItems.filter(item => 
+      item.name.toLowerCase().includes(search.toLowerCase())
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div className="flex justify-between items-end">
@@ -203,31 +228,150 @@ export default function DispatchPage() {
             {items.map((row) => (
               <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-8">
-                  <Select required onValueChange={(val) => handleItemChange(row.id, "inventoryItemId", val)}>
-                    <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold"><SelectValue placeholder="Select item..." /></SelectTrigger>
-                    <SelectContent>
-                      {inventoryItems?.map((item) => (
-                        <SelectItem key={item.id} value={item.id} className="font-bold">{item.name} ({item.currentStock} left)</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover 
+                    open={openPickerId === row.id} 
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setOpenPickerId(row.id)
+                        setInventorySearch("")
+                      } else {
+                        setOpenPickerId(null)
+                      }
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between h-10 border-2 border-black rounded-none font-bold text-left px-3",
+                          !row.inventoryItemId && "text-muted-foreground"
+                        )}
+                      >
+                        <span className="truncate">
+                          {row.inventoryItemId
+                            ? inventoryItems?.find((item) => item.id === row.inventoryItemId)?.name
+                            : "Select item..."}
+                        </span>
+                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] border-2 border-black rounded-none" align="start">
+                      <div className="p-2 border-b-2 border-black bg-muted/10">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Search parts..."
+                            className="pl-7 h-9 border-2 border-black rounded-none text-xs font-bold"
+                            value={inventorySearch}
+                            onChange={(e) => setInventorySearch(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <ScrollArea className="h-60">
+                        <div className="p-1">
+                          {filteredInventory(inventorySearch).map((item) => (
+                            <Button
+                              key={item.id}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start text-xs font-bold rounded-none h-9 hover:bg-black hover:text-white transition-colors flex items-center gap-2",
+                                row.inventoryItemId === item.id && "bg-muted"
+                              )}
+                              onClick={() => {
+                                handleItemChange(row.id, "inventoryItemId", item.id)
+                                setOpenPickerId(null)
+                              }}
+                            >
+                              <div className={cn("h-3 w-3 shrink-0 flex items-center justify-center", row.inventoryItemId === item.id ? "opacity-100" : "opacity-0")}>
+                                <Check className="h-3 w-3" />
+                              </div>
+                              <span className="truncate flex-1">{item.name}</span>
+                              <span className="text-[9px] opacity-60 font-black uppercase whitespace-nowrap">{item.currentStock} left</span>
+                            </Button>
+                          ))}
+                          {filteredInventory(inventorySearch).length === 0 && (
+                            <div className="py-6 text-center text-[10px] font-black uppercase text-muted-foreground">
+                              No items found
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div className="col-span-3"><Input type="number" min="1" defaultValue="1" onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)} className="h-10 border-2 border-black rounded-none font-black text-center" /></div>
-                <div className="col-span-1"><Button type="button" variant="ghost" size="icon" onClick={() => removeItemRow(row.id)} className="text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black transition-all"><Trash2 className="h-4 w-4" /></Button></div>
+                <div className="col-span-3">
+                  <Input 
+                    type="number" 
+                    min="1" 
+                    defaultValue="1" 
+                    onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)} 
+                    className="h-10 border-2 border-black rounded-none font-black text-center" 
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => removeItemRow(row.id)} 
+                    className="text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black transition-all"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={addItemRow} className="w-full h-10 border-2 border-black border-dashed rounded-none font-black uppercase"><Plus className="mr-2 h-4 w-4" /> Add Item</Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={addItemRow} 
+              className="w-full h-10 border-2 border-black border-dashed rounded-none font-black uppercase"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-5 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader className="bg-muted/20 border-b-2 border-black py-4"><CardTitle className="text-xl font-black uppercase">Dispatch Context</CardTitle></CardHeader>
+          <CardHeader className="bg-muted/20 border-b-2 border-black py-4">
+            <CardTitle className="text-xl font-black uppercase">Dispatch Context</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4 pt-6">
-            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Assigned Technician</Label><Select name="assignedTo" required><SelectTrigger className="h-10 border-2 border-black rounded-none font-bold"><SelectValue placeholder="Choose personnel..." /></SelectTrigger><SelectContent>{staffMembers?.map((staff) => (<SelectItem key={staff.id} value={staff.id} className="font-bold">{staff.firstName} {staff.lastName}</SelectItem>))}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Reference / Job #</Label><Input name="purpose" required className="h-10 border-2 border-black rounded-none font-bold" /></div>
-            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Delivery Address</Label><Input name="deliveryAddress" required className="h-10 border-2 border-black rounded-none font-bold" /></div>
-            <div className="space-y-1"><Label className="font-black uppercase text-[10px]">Internal Notes</Label><Input name="notes" className="h-10 border-2 border-black rounded-none font-bold" /></div>
-            <Button type="submit" disabled={isSubmitting} className="w-full h-14 bg-black text-white rounded-none font-black text-lg uppercase mt-2">{isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />} AUTHORIZE DISPATCH</Button>
+            <div className="space-y-1">
+              <Label className="font-black uppercase text-[10px]">Assigned Technician</Label>
+              <Select name="assignedTo" required>
+                <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold">
+                  <SelectValue placeholder="Choose personnel..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffMembers?.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id} className="font-bold">
+                      {staff.firstName} {staff.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="font-black uppercase text-[10px]">Reference / Job #</Label>
+              <Input name="purpose" required className="h-10 border-2 border-black rounded-none font-bold" />
+            </div>
+            <div className="space-y-1">
+              <Label className="font-black uppercase text-[10px]">Delivery Address</Label>
+              <Input name="deliveryAddress" required className="h-10 border-2 border-black rounded-none font-bold" />
+            </div>
+            <div className="space-y-1">
+              <Label className="font-black uppercase text-[10px]">Internal Notes</Label>
+              <Input name="notes" className="h-10 border-2 border-black rounded-none font-bold" />
+            </div>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting} 
+              className="w-full h-14 bg-black text-white rounded-none font-black text-lg uppercase mt-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
+            >
+              {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />} AUTHORIZE DISPATCH
+            </Button>
           </CardContent>
         </Card>
       </form>

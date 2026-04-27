@@ -35,10 +35,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check } from "lucide-react"
+import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
@@ -404,7 +405,12 @@ export default function DispatchPage() {
                         <TableCell className="font-bold uppercase text-[10px]">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
                         <TableCell className="hidden md:table-cell text-[10px] font-bold uppercase"><MapPin className="h-3 w-3 inline mr-1" />{dispatch.deliveryAddress || "Not set"}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="icon" variant="ghost" onClick={() => handleDeleteDispatch(dispatch)} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" asChild className="rounded-none border-2 border-transparent hover:border-black">
+                              <Link href={`/dispatch/${dispatch.id}`}><ArrowRight className="h-4 w-4" /></Link>
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteDispatch(dispatch)} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )

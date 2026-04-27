@@ -55,7 +55,6 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "description": { "type": "string" },
         "currentStock": { "type": "number" },
         "reorderThreshold": { "type": "number" },
         "pricePerUnit": { "type": "number" }

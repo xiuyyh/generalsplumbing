@@ -52,7 +52,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 
 export default function InventoryPage() {
@@ -92,7 +91,6 @@ export default function InventoryPage() {
       name: formData.get("name") as string,
       currentStock: Number(formData.get("currentStock")),
       reorderThreshold: Number(formData.get("reorderThreshold")),
-      description: formData.get("description") as string,
       pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
     }
 
@@ -113,7 +111,6 @@ export default function InventoryPage() {
     const updatedData = {
       name: formData.get("name") as string,
       reorderThreshold: Number(formData.get("reorderThreshold")),
-      description: formData.get("description") as string,
       pricePerUnit: Number(formData.get("pricePerUnit")) || 0,
     }
 
@@ -207,8 +204,8 @@ export default function InventoryPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description" className="text-xs font-black uppercase">Description</Label>
-                  <Textarea id="description" name="description" required className="border-2 border-black rounded-none font-bold" />
+                  <Label htmlFor="pricePerUnit" className="text-xs font-black uppercase">Price Per Unit</Label>
+                  <Input id="pricePerUnit" name="pricePerUnit" type="number" step="0.01" defaultValue="0" className="border-2 border-black rounded-none h-10 font-bold" />
                 </div>
               </div>
               <DialogFooter>
@@ -344,8 +341,8 @@ export default function InventoryPage() {
                 <Input id="edit-reorderThreshold" name="reorderThreshold" type="number" defaultValue={selectedItem?.reorderThreshold} required className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-description" className="text-xs font-black uppercase">Description</Label>
-                <Textarea id="edit-description" name="description" defaultValue={selectedItem?.description} required className="border-2 border-black rounded-none font-bold" />
+                <Label htmlFor="edit-pricePerUnit" className="text-xs font-black uppercase">Price Per Unit</Label>
+                <Input id="edit-pricePerUnit" name="pricePerUnit" type="number" step="0.01" defaultValue={selectedItem?.pricePerUnit} className="border-2 border-black rounded-none h-10 font-bold" />
               </div>
             </div>
             <DialogFooter>

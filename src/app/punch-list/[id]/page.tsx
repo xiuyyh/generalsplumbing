@@ -24,12 +24,14 @@ import {
   ArrowLeft,
   Clock,
   ExternalLink,
-  History
+  History,
+  ImageIcon
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { notifyPunchOverdue } from "@/ai/flows/notify-punchlist-flow"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function PunchListDetailPage() {
   const { user, isUserLoading } = useUser()
@@ -223,15 +225,16 @@ export default function PunchListDetailPage() {
             <CardContent className="p-2">
               {item.photoUrl ? (
                 <div className="relative aspect-square border-2 border-black bg-muted overflow-hidden">
-                  <img 
+                  <Image 
                     src={item.photoUrl} 
                     alt="Task evidence" 
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 </div>
               ) : (
                 <div className="aspect-square flex flex-col items-center justify-center bg-muted border-2 border-black border-dashed opacity-30">
-                  <AlertCircle className="h-10 w-10 mb-2" />
+                  <ImageIcon className="h-10 w-10 mb-2" />
                   <p className="text-[10px] font-black uppercase">No Visual Documentation Provided</p>
                 </div>
               )}

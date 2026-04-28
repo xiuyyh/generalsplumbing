@@ -14,10 +14,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogIn, ShieldCheck, Loader2, ArrowLeft, UserPlus, Eye, EyeOff } from "lucide-react"
+import { LogIn, ShieldCheck, Loader2, ArrowLeft, UserPlus, Eye, EyeOff, Key } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+
+const MASTER_ADMIN_KEY = "GP-2025-SYSTEM-ADMIN"
 
 export default function AuthPage() {
   const { user, isUserLoading } = useUser()
@@ -30,6 +32,10 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Secret bootstrap state
+  const [showSecretField, setShowSecretField] = useState(false)
+  const [secretKeyInput, setSecretKeyInput] = useState("")
 
   // Fetch signup settings
   const settingsRef = useMemoFirebase(() => {
@@ -45,20 +51,31 @@ export default function AuthPage() {
       // Initialize profile if it doesn't exist
       getDoc(userRef).then(async (snap) => {
         if (!snap.exists()) {
-          // Check if this is the first user in the system to bootstrap Admin
+          // Default role and status
           let role = "WORKER"
           let status = "pending"
 
-          try {
-            const usersQuery = query(collection(firestore, "users"), limit(1))
-            const usersSnap = await getDocs(usersQuery)
-            if (usersSnap.empty) {
-              // First user ever! Make them approved Admin
-              role = "ADMIN"
-              status = "approved"
+          // Check secret key
+          if (secretKeyInput === MASTER_ADMIN_KEY) {
+            role = "ADMIN"
+            status = "approved"
+            toast({
+              title: "Administrative Override",
+              description: "System credentials verified. Administrative access granted."
+            })
+          } else {
+            // Fallback bootstrap: check if this is the first user in the system
+            try {
+              const usersQuery = query(collection(firestore, "users"), limit(1))
+              const usersSnap = await getDocs(usersQuery)
+              if (usersSnap.empty) {
+                // First user ever! Make them approved Admin
+                role = "ADMIN"
+                status = "approved"
+              }
+            } catch (e) {
+              // Permission denied or other error - default to worker/pending
             }
-          } catch (e) {
-            // Permission denied or other error - default to worker/pending
           }
 
           setDocumentNonBlocking(userRef, {
@@ -73,7 +90,7 @@ export default function AuthPage() {
         router.push("/")
       })
     }
-  }, [user, firestore, isUserLoading, router, displayName])
+  }, [user, firestore, isUserLoading, router, displayName, secretKeyInput])
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,10 +129,35 @@ export default function AuthPage() {
 
   return (
     <div className="max-w-md mx-auto py-12 space-y-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-5xl font-black uppercase tracking-tighter">Access Portal</h1>
+      <div className="text-center space-y-2 relative">
+        <h1 className="text-5xl font-black uppercase tracking-tighter inline-flex items-center gap-1">
+          Access Portal 
+          <span 
+            className="text-[10px] cursor-pointer opacity-10 hover:opacity-100 transition-opacity"
+            onClick={() => setShowSecretField(!showSecretField)}
+          >
+            *
+          </span>
+        </h1>
         <p className="text-muted-foreground font-bold uppercase text-xs tracking-[0.2em]">Generals Plumbing Management</p>
       </div>
+
+      {showSecretField && (
+        <Card className="border-4 border-dashed border-black bg-amber-50 rounded-none p-4 animate-in fade-in slide-in-from-top-2">
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase flex items-center gap-2">
+              <Key className="h-3 w-3" /> System Authorization Key
+            </Label>
+            <Input 
+              placeholder="Enter override code..." 
+              value={secretKeyInput}
+              onChange={(e) => setSecretKeyInput(e.target.value)}
+              className="border-2 border-black rounded-none h-10 font-black text-xs"
+            />
+            <p className="text-[8px] font-bold text-muted-foreground uppercase">Enter master code before registering to bypass approval.</p>
+          </div>
+        </Card>
+      )}
 
       <Card className="border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
         <div className="bg-black text-white p-4 flex items-center justify-center gap-2">

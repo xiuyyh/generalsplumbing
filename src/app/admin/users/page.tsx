@@ -98,11 +98,16 @@ export default function UserManagementPage() {
     toast({ variant: "destructive", title: "User Rejected", description: "Access denied." })
   }
 
-  const handleDelete = (uid: string) => {
+  const handleDelete = (uid: string, email: string) => {
     if (!firestore) return
-    if (window.confirm("PERMANENT REMOVAL: Delete this user profile?")) {
+    if (uid === user?.uid) {
+      toast({ variant: "destructive", title: "Action Denied", description: "You cannot delete your own administrative account." })
+      return
+    }
+    
+    if (window.confirm(`PERMANENT REMOVAL: Delete user ${email}? This will remove all associated profile data.`)) {
       deleteDocumentNonBlocking(doc(firestore, "users", uid))
-      toast({ variant: "destructive", title: "User Deleted" })
+      toast({ variant: "destructive", title: "User Deleted", description: "Profile has been purged from the system." })
     }
   }
 
@@ -157,21 +162,35 @@ export default function UserManagementPage() {
                     <div className="flex justify-end gap-2">
                       {u.status === 'pending' && (
                         <>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleApprove(u.uid)}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleApprove(u.uid)} title="Approve User">
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleReject(u.uid)}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 border-2 border-transparent hover:border-black rounded-none" onClick={() => handleReject(u.uid)} title="Reject User">
                             <X className="h-4 w-4" />
                           </Button>
                         </>
                       )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive border-2 border-transparent hover:border-black rounded-none" onClick={() => handleDelete(u.uid)}>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-destructive border-2 border-transparent hover:border-black rounded-none" 
+                        onClick={() => handleDelete(u.uid, u.email)}
+                        disabled={u.uid === user?.uid}
+                        title="Delete User"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {(!users || users.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground font-black uppercase text-xs">
+                    No registered personnel found.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

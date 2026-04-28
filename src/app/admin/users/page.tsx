@@ -98,10 +98,16 @@ export default function UserManagementPage() {
     toast({ variant: "destructive", title: "User Rejected", description: "Access denied." })
   }
 
-  const handleDelete = (uid: string, email: string) => {
+  const handleDelete = (uid: string, email: string, targetRole: string) => {
     if (!firestore) return
+    
     if (uid === user?.uid) {
       toast({ variant: "destructive", title: "Action Denied", description: "You cannot delete your own administrative account." })
+      return
+    }
+
+    if (targetRole === "ADMIN") {
+      toast({ variant: "destructive", title: "Action Denied", description: "Administrative accounts cannot be deleted by other admins." })
       return
     }
     
@@ -173,10 +179,10 @@ export default function UserManagementPage() {
                       <Button 
                         size="icon" 
                         variant="ghost" 
-                        className="h-8 w-8 text-destructive border-2 border-transparent hover:border-black rounded-none" 
-                        onClick={() => handleDelete(u.uid, u.email)}
-                        disabled={u.uid === user?.uid}
-                        title="Delete User"
+                        className="h-8 w-8 text-destructive border-2 border-transparent hover:border-black rounded-none disabled:opacity-30" 
+                        onClick={() => handleDelete(u.uid, u.email, u.role)}
+                        disabled={u.uid === user?.uid || u.role === "ADMIN"}
+                        title={u.role === "ADMIN" ? "Admins cannot be deleted" : "Delete User"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

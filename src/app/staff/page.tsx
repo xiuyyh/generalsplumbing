@@ -38,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UserPlus, Briefcase, Mail, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2 } from "lucide-react"
+import { UserPlus, Briefcase, Phone, Loader2, ShieldAlert, MoreVertical, Edit2, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function StaffPage() {
@@ -180,8 +180,8 @@ export default function StaffPage() {
             <TableHeader className="bg-black">
               <TableRow className="hover:bg-black">
                 <TableHead className="text-white font-black uppercase text-xs">Name</TableHead>
-                <TableHead className="text-white font-black uppercase text-xs hidden md:table-cell">Role</TableHead>
-                <TableHead className="text-white font-black uppercase text-xs hidden lg:table-cell">Contact</TableHead>
+                <TableHead className="text-white font-black uppercase text-xs">Role</TableHead>
+                <TableHead className="text-white font-black uppercase text-xs">Number</TableHead>
                 <TableHead className="text-white font-black uppercase text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -189,11 +189,8 @@ export default function StaffPage() {
               {staffMembers?.map((staff) => (
                 <TableRow key={staff.id} className="border-b-2 border-black/10 hover:bg-muted/50">
                   <TableCell className="font-black uppercase text-xs">{staff.firstName} {staff.lastName}</TableCell>
-                  <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]"><Briefcase className="h-3 w-3 inline mr-1" />{staff.officialRole}</TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="text-[10px] font-bold uppercase"><Mail className="h-3 w-3 inline mr-1" />{staff.email}</div>
-                    <div className="text-[10px] font-bold uppercase"><Phone className="h-3 w-3 inline mr-1" />{staff.phoneNumber}</div>
-                  </TableCell>
+                  <TableCell className="font-bold uppercase text-[10px]"><Briefcase className="h-3 w-3 inline mr-1" />{staff.officialRole}</TableCell>
+                  <TableCell className="font-bold uppercase text-[10px]"><Phone className="h-3 w-3 inline mr-1" />{staff.phoneNumber}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -208,6 +205,13 @@ export default function StaffPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {(!staffMembers || staffMembers.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground font-black uppercase text-xs">
+                    No personnel records found.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

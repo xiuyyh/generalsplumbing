@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview Genkit Flow for sending Telegram notifications for overdue Punch List items.
+ * @fileOverview Genkit Flow for sending Telegram notifications for Punch List items.
  */
 
 import { ai } from '@/ai/genkit';
@@ -12,7 +12,7 @@ const PunchListAlertSchema = z.object({
   description: z.string(),
   address: z.string(),
   dueDate: z.string(),
-  daysOverdue: z.number(),
+  daysOverdue: z.number().optional(),
   chatId: z.string().describe('The Telegram Chat ID to send the notification to.'),
 });
 
@@ -26,13 +26,17 @@ const sendPunchAlertTool = ai.defineTool(
     outputSchema: z.object({ success: z.boolean() }),
   },
   async (input) => {
+    const isNew = input.daysOverdue === undefined;
+    const title = isNew ? '🆕 NEW PUNCH TASK' : '⚠️ URGENT: OVERDUE PUNCH TASK';
+    const statusText = isNew ? 'Awaiting Action' : `${input.daysOverdue} Days Past Due`;
+
     const message = `
-⚠️ <b>URGENT: OVERDUE PUNCH TASK</b>
+${title}
 ────────────────────
 <b>Task:</b> ${input.description}
 <b>Address:</b> ${input.address}
 <b>Due Date:</b> ${new Date(input.dueDate).toLocaleDateString()}
-<b>Status:</b> ${input.daysOverdue} Days Past Due
+<b>Status:</b> ${statusText}
 ────────────────────
 <i>Generals Plumbing Site Management</i>
     `.trim();
@@ -59,5 +63,9 @@ const notifyPunchListFlow = ai.defineFlow(
 );
 
 export async function notifyPunchOverdue(input: PunchListAlertInput) {
+  return notifyPunchListFlow(input);
+}
+
+export async function notifyNewPunchTask(input: Omit<PunchListAlertInput, 'daysOverdue'>) {
   return notifyPunchListFlow(input);
 }

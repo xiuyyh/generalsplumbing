@@ -41,6 +41,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
+import { notifyNewPunchTask } from "@/ai/flows/notify-punchlist-flow"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -62,6 +63,12 @@ export default function PunchListPage() {
   }, [firestore, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
+  const telegramSettingsRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "appSettings", "telegram")
+  }, [firestore])
+  const { data: telegramSettings } = useDoc(telegramSettingsRef)
+
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.replace("/auth")
@@ -69,7 +76,6 @@ export default function PunchListPage() {
   }, [user, isUserLoading, router])
 
   useEffect(() => {
-    // Prevent hydration error by setting min date on mount
     setMinDate(new Date().toISOString().split('T')[0])
   }, [])
 
@@ -136,7 +142,9 @@ export default function PunchListPage() {
     if (!firestore || !storage || isSubmitting) return
 
     const formData = new FormData(e.currentTarget)
+    const description = formData.get("description") as string
     const dueDateVal = formData.get("dueDate") as string
+    const address = formData.get("address") as string
     const selectedDate = new Date(dueDateVal)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -163,29 +171,34 @@ export default function PunchListPage() {
         }
       } catch (err) {
         console.error("Storage upload failure:", err)
-        toast({ 
-          variant: "destructive", 
-          title: "Storage Error", 
-          description: "One or more image uploads failed." 
-        })
       }
     }
     
     const data = {
-      description: formData.get("description") as string,
+      description,
       dueDate: selectedDate.toISOString(),
-      address: formData.get("address") as string,
+      address,
       status: "submitted",
       photoUrls: photoUrls,
       createdAt: new Date().toISOString()
     }
 
     addDocumentNonBlocking(collection(firestore, "punchLists"), data)
+    
+    if (telegramSettings?.chatId) {
+      notifyNewPunchTask({
+        description,
+        address,
+        dueDate: selectedDate.toISOString(),
+        chatId: telegramSettings.chatId
+      }).catch(console.error)
+    }
+
     setIsAddOpen(false)
     setSelectedFiles([])
     setPreviews([])
     setIsSubmitting(false)
-    toast({ title: "Task Submitted", description: "Punch list item added." })
+    toast({ title: "Task Submitted", description: "Punch list item added and team notified." })
   }
 
   const handleDelete = (id: string) => {

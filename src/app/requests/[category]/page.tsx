@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useParams, useRouter } from "next/navigation"
-import { collection, query, orderBy, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore"
+import { collection, query, orderBy, doc, addDoc, serverTimestamp, writeBatch, where } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -74,10 +74,15 @@ export default function RequestCategoryPage() {
   }, [firestore, user])
   const { data: allBundles } = useCollection(bundlesQuery)
 
+  // Optimized query: Filtering by category in Firestore
   const requestsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
-    return query(collection(firestore, "materialRequests"), orderBy("requestTime", "desc"))
-  }, [firestore, user])
+    if (!firestore || !user || !category) return null
+    return query(
+      collection(firestore, "materialRequests"), 
+      where("category", "==", category),
+      orderBy("requestTime", "desc")
+    )
+  }, [firestore, user, category])
   const { data: requests, isLoading: isRequestsLoading } = useCollection(requestsQuery)
 
   useEffect(() => {
@@ -107,7 +112,6 @@ export default function RequestCategoryPage() {
   }
 
   const categoryBundles = allBundles?.filter(b => b.category.toLowerCase() === category.toLowerCase()) || []
-  const filteredRequests = requests?.filter(r => r.category === category) || []
   const filteredInventory = inventoryItems?.filter(item => 
     item.name.toLowerCase().includes(inventorySearch.toLowerCase())
   ) || []
@@ -362,7 +366,7 @@ export default function RequestCategoryPage() {
                   {isRequestsLoading ? (
                     <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                   ) : (
-                    filteredRequests.map((req) => (
+                    requests?.map((req) => (
                       <TableRow key={req.id} className="border-b-2 border-black/10 hover:bg-muted/30">
                         <TableCell>
                           <div className="font-black uppercase text-xs">{req.itemName} x{req.quantity}</div>
@@ -387,7 +391,7 @@ export default function RequestCategoryPage() {
                       </TableRow>
                     ))
                   )}
-                  {filteredRequests.length === 0 && !isRequestsLoading && (
+                  {(!requests || requests.length === 0) && !isRequestsLoading && (
                     <TableRow><TableCell colSpan={4} className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">No active {category} requests.</TableCell></TableRow>
                   )}
                 </TableBody>

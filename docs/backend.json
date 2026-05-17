@@ -45,9 +45,33 @@
         "deliveryAddress": { "type": "string" },
         "requestTime": { "type": "string", "format": "date-time" },
         "deliveryTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["pending", "delivered"] }
+        "status": { "type": "string", "enum": ["pending", "dispatched"] },
+        "bundleId": { "type": "string", "description": "Optional reference to the bundle this request was part of." }
       },
       "required": ["workerUid", "category", "itemId", "quantity", "deliveryAddress", "requestTime", "status"]
+    },
+    "Bundle": {
+      "title": "Bundle",
+      "type": "object",
+      "description": "A pre-filled collection of items for a specific phase.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Rough", "Underslab", "Final"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "itemName": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "items"]
     },
     "AppSetting": {
       "title": "AppSetting",
@@ -96,6 +120,10 @@
     "/materialRequests/{requestId}": {
       "schema": "#/backend/entities/MaterialRequest",
       "description": "Worker material requests."
+    },
+    "/bundles/{bundleId}": {
+      "schema": "#/backend/entities/Bundle",
+      "description": "Pre-defined material kits."
     },
     "/appSettings/{settingId}": {
       "schema": "#/backend/entities/AppSetting",

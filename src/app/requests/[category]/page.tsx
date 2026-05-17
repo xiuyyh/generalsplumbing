@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useParams, useRouter } from "next/navigation"
-import { collection, query, orderBy, doc, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, orderBy, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -27,7 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Hammer, Send, Loader2, MapPin, Search, Check, Clock, CheckCircle2, Package, ShieldAlert } from "lucide-react"
+import { Hammer, Send, Loader2, MapPin, Search, Check, Clock, Package, Boxes, ShieldAlert, ArrowRight, Zap } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -67,6 +68,12 @@ export default function RequestCategoryPage() {
   }, [firestore, user])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
+  const bundlesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return query(collection(firestore, "bundles"), orderBy("name", "asc"))
+  }, [firestore, user])
+  const { data: allBundles } = useCollection(bundlesQuery)
+
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return query(collection(firestore, "materialRequests"), orderBy("requestTime", "desc"))
@@ -99,6 +106,7 @@ export default function RequestCategoryPage() {
     )
   }
 
+  const categoryBundles = allBundles?.filter(b => b.category.toLowerCase() === category.toLowerCase()) || []
   const filteredRequests = requests?.filter(r => r.category === category) || []
   const filteredInventory = inventoryItems?.filter(item => 
     item.name.toLowerCase().includes(inventorySearch.toLowerCase())
@@ -129,8 +137,7 @@ export default function RequestCategoryPage() {
       if (telegramSettings?.chatId) {
         notifyNewRequest({
           workerName: workerName,
-          itemName: item?.name || "Unknown Item",
-          quantity: Number(quantity),
+          items: [{ name: item?.name || "Unknown Item", quantity: Number(quantity) }],
           category: category,
           address: address,
           chatId: telegramSettings.chatId
@@ -143,6 +150,54 @@ export default function RequestCategoryPage() {
       setAddress("")
     } catch (err) {
       toast({ variant: "destructive", title: "Error", description: "Failed to submit request." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleBundleRequest = async (bundle: any) => {
+    if (!firestore || !user || isSubmitting || !address) {
+      if (!address) toast({ variant: "destructive", title: "Missing Destination", description: "Please enter a delivery address first." })
+      return
+    }
+    
+    setIsSubmitting(true)
+    const workerName = profile?.displayName || user.email || "Unknown Worker"
+    const batch = writeBatch(firestore)
+
+    try {
+      bundle.items.forEach((item: any) => {
+        const reqRef = doc(collection(firestore, "materialRequests"))
+        batch.set(reqRef, {
+          workerUid: user.uid,
+          workerName: workerName,
+          category,
+          itemId: item.itemId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          deliveryAddress: address,
+          requestTime: new Date().toISOString(),
+          status: "pending",
+          bundleId: bundle.id,
+          createdAt: serverTimestamp()
+        })
+      })
+
+      await batch.commit()
+
+      if (telegramSettings?.chatId) {
+        notifyNewRequest({
+          workerName: workerName,
+          items: bundle.items.map((i: any) => ({ name: i.itemName, quantity: i.quantity })),
+          category: category,
+          address: address,
+          chatId: telegramSettings.chatId
+        }).catch(console.error)
+      }
+
+      toast({ title: "Bundle Requested", description: `All items from ${bundle.name} have been logged.` })
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error", description: "Bundle request failed." })
     } finally {
       setIsSubmitting(false)
     }
@@ -163,83 +218,133 @@ export default function RequestCategoryPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <Card className="lg:col-span-5 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
-          <CardHeader className="bg-black text-white py-4">
-            <CardTitle className="text-xl font-black uppercase">Create Request</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-8 space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="lg:col-span-5 space-y-8">
+          <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+            <CardHeader className="bg-black text-white py-4">
+              <CardTitle className="text-xl font-black uppercase">Standard Request</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-8 space-y-6">
               <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase opacity-60">Technician Name (Automated)</Label>
-                <Input value={profile?.displayName || ""} disabled className="h-10 border-2 border-black rounded-none font-bold bg-muted" />
+                <Label className="text-[10px] font-black uppercase opacity-60">Delivery Destination (REQUIRED)</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    value={address} 
+                    onChange={(e) => setAddress(e.target.value)} 
+                    placeholder="Enter site address for all items..." 
+                    className="h-12 border-2 border-black rounded-none font-bold pl-10" 
+                  />
+                </div>
+                <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Address must be set before requesting bundles or standard items.</p>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase opacity-60">Material Item</Label>
-                <Popover open={openPicker} onOpenChange={setOpenPicker}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between h-10 border-2 border-black rounded-none font-bold px-3">
-                      <span className="truncate">
-                        {selectedItemIdInternal ? inventoryItems?.find(i => i.id === selectedItemIdInternal)?.name : "Search parts..."}
-                      </span>
-                      <Search className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] border-2 border-black rounded-none">
-                    <div className="p-2 border-b-2 border-black bg-muted/10">
-                      <Input
-                        placeholder="Type to filter..."
-                        className="h-8 border-2 border-black rounded-none text-xs font-bold"
-                        value={inventorySearch}
-                        onChange={(e) => setInventorySearch(e.target.value)}
-                      />
-                    </div>
-                    <ScrollArea className="h-40">
-                      <div className="p-1">
-                        {filteredInventory.map((item) => (
-                          <Button
-                            key={item.id}
-                            variant="ghost"
-                            className={cn(
-                              "w-full justify-start text-xs font-bold rounded-none h-8 hover:bg-black hover:text-white transition-colors",
-                              selectedItemIdInternal === item.id && "bg-muted"
-                            )}
-                            onClick={() => {
-                              setSelectedItemIdInternal(item.id)
-                              setOpenPicker(false)
-                            }}
-                          >
-                            <span className="truncate">{item.name}</span>
-                          </Button>
-                        ))}
+              <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t-2 border-black/5">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-black uppercase opacity-60">Single Item Picker</Label>
+                  <Popover open={openPicker} onOpenChange={setOpenPicker}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between h-10 border-2 border-black rounded-none font-bold px-3">
+                        <span className="truncate">
+                          {selectedItemIdInternal ? inventoryItems?.find(i => i.id === selectedItemIdInternal)?.name : "Search for a specific part..."}
+                        </span>
+                        <Search className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] border-2 border-black rounded-none">
+                      <div className="p-2 border-b-2 border-black bg-muted/10">
+                        <Input
+                          placeholder="Type to filter..."
+                          className="h-8 border-2 border-black rounded-none text-xs font-bold"
+                          value={inventorySearch}
+                          onChange={(e) => setInventorySearch(e.target.value)}
+                        />
                       </div>
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Quantity</Label>
-                  <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-10 border-2 border-black rounded-none font-black" />
+                      <ScrollArea className="h-40">
+                        <div className="p-1">
+                          {filteredInventory.map((item) => (
+                            <Button
+                              key={item.id}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start text-xs font-bold rounded-none h-8 hover:bg-black hover:text-white transition-colors",
+                                selectedItemIdInternal === item.id && "bg-muted"
+                              )}
+                              onClick={() => {
+                                setSelectedItemIdInternal(item.id)
+                                setOpenPicker(false)
+                              }}
+                            >
+                              <span className="truncate">{item.name}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Job Category</Label>
-                  <Input value={category} disabled className="h-10 border-2 border-black rounded-none font-black bg-muted" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase opacity-60">Quantity</Label>
+                    <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-10 border-2 border-black rounded-none font-black" />
+                  </div>
+                  <div className="space-y-1 flex items-end">
+                    <Button type="submit" disabled={isSubmitting || !selectedItemIdInternal || !address} className="w-full h-10 bg-black text-white font-black text-xs uppercase rounded-none">
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-1 h-3 w-3" />} ADD ITEM
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase opacity-60">Delivery Address</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full site address" className="h-10 border-2 border-black rounded-none font-bold" />
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Boxes className="h-5 w-5" />
+              <h2 className="text-2xl font-black uppercase">Phase Bundles</h2>
+            </div>
+            {categoryBundles.length === 0 ? (
+              <div className="text-center py-10 border-2 border-black border-dashed bg-muted/10">
+                <p className="text-[10px] font-black uppercase text-muted-foreground">No pre-filled bundles for this phase.</p>
               </div>
-
-              <Button type="submit" disabled={isSubmitting || !selectedItemIdInternal || !address} className="w-full h-14 bg-black text-white font-black text-lg uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all rounded-none">
-                {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />} SUBMIT REQUEST
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="space-y-3">
+                {categoryBundles.map(bundle => (
+                  <Card key={bundle.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all bg-white">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-black uppercase text-sm leading-tight">{bundle.name}</h3>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase">{bundle.items.length} items included</p>
+                        </div>
+                        <Button 
+                          onClick={() => handleBundleRequest(bundle)}
+                          disabled={isSubmitting || !address}
+                          size="sm"
+                          className="bg-black text-white rounded-none h-8 font-black uppercase text-[10px]"
+                        >
+                          <Zap className="mr-1 h-3 w-3 fill-current" /> REQUEST BUNDLE
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {bundle.items.slice(0, 3).map((i: any) => (
+                          <Badge key={i.itemId} variant="outline" className="text-[8px] font-black border-black/10 rounded-none bg-muted/10">
+                            {i.itemName} x{i.quantity}
+                          </Badge>
+                        ))}
+                        {bundle.items.length > 3 && (
+                          <Badge variant="outline" className="text-[8px] font-black border-black/10 rounded-none bg-muted/10">
+                            +{bundle.items.length - 3} more
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h2 className="text-2xl font-black uppercase">Active Requests</h2></div>
@@ -249,7 +354,6 @@ export default function RequestCategoryPage() {
                 <TableHeader className="bg-black">
                   <TableRow className="hover:bg-black">
                     <TableHead className="text-white font-black uppercase text-[10px]">Material</TableHead>
-                    <TableHead className="text-white font-black uppercase text-[10px]">Worker</TableHead>
                     <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Status</TableHead>
                     <TableHead className="text-white font-black uppercase text-[10px] text-right">Time</TableHead>
                   </TableRow>
@@ -262,9 +366,13 @@ export default function RequestCategoryPage() {
                       <TableRow key={req.id} className="border-b-2 border-black/10 hover:bg-muted/30">
                         <TableCell>
                           <div className="font-black uppercase text-xs">{req.itemName} x{req.quantity}</div>
-                          <div className="text-[9px] font-bold text-muted-foreground uppercase"><MapPin className="h-2 w-2 inline mr-1" />{req.deliveryAddress}</div>
+                          <div className="text-[9px] font-bold text-muted-foreground uppercase">
+                            <MapPin className="h-2 w-2 inline mr-1" />{req.deliveryAddress}
+                          </div>
+                          {req.bundleId && (
+                            <Badge className="bg-blue-100 text-blue-700 text-[8px] h-4 mt-1 border-none rounded-none font-black uppercase">Bundle Request</Badge>
+                          )}
                         </TableCell>
-                        <TableCell className="font-bold uppercase text-[9px]">{req.workerName}</TableCell>
                         <TableCell className="hidden md:table-cell">
                           <Badge className={cn(
                             "rounded-none font-black uppercase text-[8px] h-5",

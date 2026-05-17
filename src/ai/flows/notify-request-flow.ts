@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Genkit Flow for sending Telegram notifications when a worker requests materials.
@@ -9,8 +10,10 @@ import { sendTelegramMessage } from '@/services/telegram';
 
 const MaterialRequestAlertSchema = z.object({
   workerName: z.string(),
-  itemName: z.string(),
-  quantity: z.number(),
+  items: z.array(z.object({
+    name: z.string(),
+    quantity: z.number()
+  })),
   category: z.string(),
   address: z.string(),
   chatId: z.string().describe('The Telegram Chat ID to send the notification to.'),
@@ -26,14 +29,17 @@ const sendRequestAlertTool = ai.defineTool(
     outputSchema: z.object({ success: z.boolean() }),
   },
   async (input) => {
+    const itemsList = input.items.map(item => `• ${item.name} (x${item.quantity})`).join('\n');
+    
     const message = `
 🛠️ <b>NEW MATERIAL REQUEST</b>
 ────────────────────
 <b>Worker:</b> ${input.workerName}
-<b>Item:</b> ${input.itemName}
-<b>Qty:</b> ${input.quantity}
 <b>Phase:</b> ${input.category}
 <b>Site:</b> ${input.address}
+
+<b>Requested Items:</b>
+${itemsList}
 ────────────────────
 <i>Pending authorization in Dispatch Terminal</i>
     `.trim();

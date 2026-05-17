@@ -1,10 +1,11 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { collection, doc, writeBatch, serverTimestamp, orderBy, query, where } from "firebase/firestore"
-import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { 
   Card, 
   CardContent, 
@@ -35,7 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight, ShieldAlert, CheckCircle2 } from "lucide-react"
+import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight, ShieldAlert, CheckCircle2, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
@@ -147,7 +148,7 @@ export default function DispatchPage() {
         quantity: Number(req.quantity),
         dispatchDateTime: new Date().toISOString(),
         dispatchedByStaffMemberId: user.uid,
-        assignedToStaffMemberId: req.workerUid, // Using worker UID as staff reference
+        assignedToStaffMemberId: req.workerUid, 
         purpose: req.category,
         deliveryAddress: req.deliveryAddress,
         createdAt: serverTimestamp()
@@ -181,6 +182,23 @@ export default function DispatchPage() {
       toast({ variant: "destructive", title: "Error", description: "Authorization failed." })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleDeclineRequest = (reqId: string) => {
+    if (!firestore || isSubmitting) return
+    updateDocumentNonBlocking(doc(firestore, "materialRequests", reqId), {
+      status: "rejected",
+      rejectedAt: new Date().toISOString()
+    })
+    toast({ variant: "destructive", title: "Request Rejected", description: "Worker material request has been declined." })
+  }
+
+  const handleDeleteRequest = (reqId: string) => {
+    if (!firestore) return
+    if (window.confirm("PERMANENT REMOVAL: Delete this pending request? This cannot be undone.")) {
+      deleteDocumentNonBlocking(doc(firestore, "materialRequests", reqId))
+      toast({ variant: "destructive", title: "Request Deleted", description: "Record removed from system." })
     }
   }
 
@@ -302,7 +320,7 @@ export default function DispatchPage() {
                   <TableHead className="text-white font-black uppercase text-[10px]">Worker</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px]">Material</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Job Phase</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px] text-right">Review</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -318,13 +336,31 @@ export default function DispatchPage() {
                       <TableCell className="font-black uppercase text-xs">{req.itemName} x{req.quantity}</TableCell>
                       <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]">{req.category}</TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          onClick={() => handleAuthorizeRequest(req)}
-                          disabled={isSubmitting}
-                          className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3"
-                        >
-                          Authorize Dispatch
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            onClick={() => handleAuthorizeRequest(req)}
+                            disabled={isSubmitting}
+                            className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3"
+                          >
+                            Authorize
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeclineRequest(req.id)}
+                            disabled={isSubmitting}
+                            variant="outline"
+                            className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white"
+                          >
+                            Decline
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteRequest(req.id)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

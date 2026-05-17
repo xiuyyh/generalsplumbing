@@ -380,7 +380,7 @@ export default function RequestCategoryPage() {
                         <TableCell className="hidden md:table-cell">
                           <Badge className={cn(
                             "rounded-none font-black uppercase text-[8px] h-5",
-                            req.status === 'dispatched' ? "bg-green-600" : "bg-amber-500"
+                            req.status === 'dispatched' ? "bg-green-600" : req.status === 'rejected' ? "bg-red-600" : "bg-amber-500"
                           )}>
                             {req.status}
                           </Badge>

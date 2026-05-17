@@ -53,7 +53,6 @@ export function AppSidebar() {
 
   const role = profile?.role || "WORKER"
   const isAdmin = role === "ADMIN"
-  // Approved means status is approved OR the user is an Admin
   const isApproved = profile?.status === "approved" || isAdmin
 
   if (!user || pathname === "/auth") {

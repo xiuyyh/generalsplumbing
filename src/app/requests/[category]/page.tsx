@@ -1,10 +1,9 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useParams, useRouter } from "next/navigation"
-import { collection, query, orderBy, doc, addDoc, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, query, orderBy, doc, addDoc, serverTimestamp } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -33,6 +32,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { notifyNewRequest } from "@/ai/flows/notify-request-flow"
 
 export default function RequestCategoryPage() {
   const { user, isUserLoading } = useUser()
@@ -42,7 +42,6 @@ export default function RequestCategoryPage() {
   const categoryStr = (params.category as string) || ""
   const category = categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)
   
-  const [selectedItemId] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [address, setAddress] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -55,6 +54,12 @@ export default function RequestCategoryPage() {
     return doc(firestore, "users", user.uid)
   }, [firestore, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(userRef)
+
+  const telegramSettingsRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "appSettings", "telegram")
+  }, [firestore])
+  const { data: telegramSettings } = useDoc(telegramSettingsRef)
 
   const inventoryQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -105,11 +110,12 @@ export default function RequestCategoryPage() {
     setIsSubmitting(true)
 
     const item = inventoryItems?.find(i => i.id === selectedItemIdInternal)
+    const workerName = profile?.displayName || user.email || "Unknown Worker"
 
     try {
       await addDoc(collection(firestore, "materialRequests"), {
         workerUid: user.uid,
-        workerName: profile?.displayName || user.email || "Unknown Worker",
+        workerName: workerName,
         category,
         itemId: selectedItemIdInternal,
         itemName: item?.name || "Unknown Item",
@@ -120,6 +126,17 @@ export default function RequestCategoryPage() {
         createdAt: serverTimestamp()
       })
 
+      if (telegramSettings?.chatId) {
+        notifyNewRequest({
+          workerName: workerName,
+          itemName: item?.name || "Unknown Item",
+          quantity: Number(quantity),
+          category: category,
+          address: address,
+          chatId: telegramSettings.chatId
+        }).catch(console.error)
+      }
+
       toast({ title: "Request Sent", description: `Your ${category} material request has been logged.` })
       setSelectedItemIdInternal("")
       setQuantity(1)
@@ -128,19 +145,6 @@ export default function RequestCategoryPage() {
       toast({ variant: "destructive", title: "Error", description: "Failed to submit request." })
     } finally {
       setIsSubmitting(false)
-    }
-  }
-
-  const handleMarkDelivered = async (requestId: string) => {
-    if (!firestore) return
-    try {
-      await updateDoc(doc(firestore, "materialRequests", requestId), {
-        status: "delivered",
-        deliveryTime: new Date().toISOString()
-      })
-      toast({ title: "Status Updated", description: "Marked as delivered." })
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error", description: "Update failed." })
     }
   }
 
@@ -247,7 +251,7 @@ export default function RequestCategoryPage() {
                     <TableHead className="text-white font-black uppercase text-[10px]">Material</TableHead>
                     <TableHead className="text-white font-black uppercase text-[10px]">Worker</TableHead>
                     <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Status</TableHead>
-                    <TableHead className="text-white font-black uppercase text-[10px] text-right">Action</TableHead>
+                    <TableHead className="text-white font-black uppercase text-[10px] text-right">Time</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -264,18 +268,13 @@ export default function RequestCategoryPage() {
                         <TableCell className="hidden md:table-cell">
                           <Badge className={cn(
                             "rounded-none font-black uppercase text-[8px] h-5",
-                            req.status === 'delivered' ? "bg-green-600" : "bg-amber-500"
+                            req.status === 'dispatched' ? "bg-green-600" : "bg-amber-500"
                           )}>
                             {req.status}
                           </Badge>
-                          {req.deliveryTime && <div className="text-[8px] font-black mt-1 uppercase">{new Date(req.deliveryTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {req.status === 'pending' && isAdmin && (
-                            <Button size="sm" variant="outline" className="h-8 border-2 border-black rounded-none font-black uppercase text-[9px]" onClick={() => handleMarkDelivered(req.id)}>
-                              <CheckCircle2 className="h-3 w-3 mr-1" /> DELIVERED
-                            </Button>
-                          )}
+                        <TableCell className="text-right font-mono text-[9px]">
+                          {new Date(req.requestTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                         </TableCell>
                       </TableRow>
                     ))

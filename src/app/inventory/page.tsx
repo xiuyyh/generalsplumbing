@@ -1,17 +1,13 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
-import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
   Card, 
   CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -28,21 +24,11 @@ import {
   Search, 
   Filter, 
   Package, 
-  MoreHorizontal,
-  Edit2,
   Loader2,
-  TrendingUp,
-  Trash2,
-  ShieldAlert
+  ShieldAlert,
+  ArrowRight
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -63,10 +49,6 @@ export default function InventoryPage() {
   
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<any>(null)
-  const [restockAmount, setRestockAmount] = useState<number>(0)
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -135,59 +117,6 @@ export default function InventoryPage() {
       title: "Item Created",
       description: `${newItem.name} added to catalog.`,
     })
-  }
-
-  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!firestore || !selectedItem) return
-
-    const formData = new FormData(e.currentTarget)
-    const updatedData = {
-      name: formData.get("name") as string,
-      reorderThreshold: Number(formData.get("reorderThreshold")),
-    }
-
-    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
-    setIsEditDialogOpen(false)
-    
-    updateDocumentNonBlocking(itemRef, updatedData)
-    toast({
-      title: "Item Updated",
-      description: `${updatedData.name} record saved.`,
-    })
-    setSelectedItem(null)
-  }
-
-  const handleRestock = () => {
-    if (!firestore || !selectedItem || restockAmount <= 0) return
-
-    const newStock = (selectedItem.currentStock || 0) + restockAmount
-    const itemRef = doc(firestore, "inventoryItems", selectedItem.id)
-    
-    setIsRestockDialogOpen(false)
-
-    updateDocumentNonBlocking(itemRef, {
-      currentStock: newStock
-    })
-    toast({
-      title: "Stock Updated",
-      description: `Added ${restockAmount} to ${selectedItem.name}.`,
-    })
-    setRestockAmount(0)
-    setSelectedItem(null)
-  }
-
-  const handleDelete = (item: any) => {
-    if (!firestore) return
-
-    if (window.confirm(`TERMINATE RECORD: Are you sure you want to permanently remove "${item.name}"?`)) {
-      deleteDocumentNonBlocking(doc(firestore, "inventoryItems", item.id))
-      toast({
-        variant: "destructive",
-        title: "Item Deleted",
-        description: `${item.name} removed from catalog.`,
-      })
-    }
   }
 
   return (
@@ -261,7 +190,7 @@ export default function InventoryPage() {
                 <TableHead className="text-white font-black uppercase text-[10px]">Item</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px] text-center">In Stock</TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px]">Status</TableHead>
-                <TableHead className="w-[40px]"></TableHead>
+                <TableHead className="text-white font-black uppercase text-[10px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -285,41 +214,10 @@ export default function InventoryPage() {
                         <Badge variant="outline" className="text-black border-2 border-black bg-white rounded-none text-[8px] px-1 py-0 font-black">OPTIMAL</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-black hover:text-white rounded-none transition-colors">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-none border-2 border-black bg-white p-1">
-                          <DropdownMenuItem 
-                            className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setIsEditDialogOpen(true)
-                            }}
-                          >
-                            <Edit2 className="mr-2 h-3 w-3" /> Edit Item
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-xs font-black uppercase focus:bg-black focus:text-white cursor-pointer"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setIsRestockDialogOpen(true)
-                            }}
-                          >
-                            <TrendingUp className="mr-2 h-3 w-3" /> Re-stock
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-black/10" />
-                          <DropdownMenuItem 
-                            className="text-xs font-black uppercase text-destructive focus:bg-destructive focus:text-white cursor-pointer"
-                            onClick={() => handleDelete(item)}
-                          >
-                            <Trash2 className="mr-2 h-3 w-3" /> Delete Item
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="text-right">
+                      <Button asChild variant="ghost" size="sm" className="h-8 border-2 border-transparent hover:border-black rounded-none text-[10px] font-black uppercase">
+                        <Link href={`/inventory/${item.id}`}>Manage <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -334,84 +232,6 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsEditDialogOpen(false)
-          setSelectedItem(null)
-        } else {
-          setIsEditDialogOpen(true)
-        }
-      }}>
-        <DialogContent className="border-4 border-black rounded-none sm:max-w-[500px]">
-          <form onSubmit={handleUpdateItem}>
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase">Edit Inventory Item</DialogTitle>
-              <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
-                Update records for: {selectedItem?.name || "Target Item"}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name" className="text-xs font-black uppercase">Item Name</Label>
-                <Input id="edit-name" name="name" defaultValue={selectedItem?.name} required className="border-2 border-black rounded-none h-10 font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-reorderThreshold" className="text-xs font-black uppercase">Low Stock Trigger</Label>
-                <Input id="edit-reorderThreshold" name="reorderThreshold" type="number" defaultValue={selectedItem?.reorderThreshold} required className="border-2 border-black rounded-none h-10 font-bold" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" className="w-full bg-black text-white font-black h-12 rounded-none text-sm uppercase border-2 border-black">
-                SAVE CHANGES
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isRestockDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsRestockDialogOpen(false)
-          setSelectedItem(null)
-        } else {
-          setIsRestockDialogOpen(true)
-        }
-      }}>
-        <DialogContent className="border-4 border-black rounded-none sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase">Re-stock Material</DialogTitle>
-            <DialogDescription className="font-bold text-xs uppercase text-muted-foreground">
-              Update inventory for: <span className="text-black">{selectedItem?.name || "Target Item"}</span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="text-xs font-black uppercase">Quantity to Add</Label>
-              <Input 
-                id="amount" 
-                type="number" 
-                min="1"
-                value={restockAmount}
-                onChange={(e) => setRestockAmount(Number(e.target.value))}
-                className="border-2 border-black rounded-none h-12 font-black text-lg text-center"
-              />
-              <p className="text-[9px] font-black uppercase text-muted-foreground text-center">
-                New stock will be: { (selectedItem?.currentStock || 0) + restockAmount }
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              onClick={handleRestock}
-              disabled={restockAmount <= 0}
-              className="w-full bg-black text-white font-black h-12 rounded-none text-sm uppercase border-2 border-black disabled:opacity-30"
-            >
-              CONFIRM RE-STOCK
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

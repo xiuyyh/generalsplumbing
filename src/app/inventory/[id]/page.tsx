@@ -37,7 +37,7 @@ export default function InventoryItemDetailsPage() {
   const params = useParams()
   const id = params.id as string
   
-  const [restockAmount, setRestockAmount] = useState<number>(0)
+  const [restockAmount, setRestockAmount] = useState<number | "">("")
   const [isProcessing, setIsProcessing] = useState(false)
 
   const itemRef = useMemoFirebase(() => {
@@ -115,16 +115,17 @@ export default function InventoryItemDetailsPage() {
   }
 
   const handleRestock = () => {
-    if (!firestore || !id || restockAmount <= 0) return
+    const amount = typeof restockAmount === 'number' ? restockAmount : 0
+    if (!firestore || !id || amount <= 0) return
     setIsProcessing(true)
 
-    const newStock = (item.currentStock || 0) + restockAmount
+    const newStock = (item.currentStock || 0) + amount
     updateDocumentNonBlocking(doc(firestore, "inventoryItems", id), {
       currentStock: newStock
     })
     
-    toast({ title: "Stock Replenished", description: `Added ${restockAmount} units to ${item.name}.` })
-    setRestockAmount(0)
+    toast({ title: "Stock Replenished", description: `Added ${amount} units to ${item.name}.` })
+    setRestockAmount("")
     setIsProcessing(false)
   }
 
@@ -138,6 +139,7 @@ export default function InventoryItemDetailsPage() {
   }
 
   const isLowStock = item.currentStock <= (item.reorderThreshold || 0)
+  const currentVal = typeof restockAmount === 'number' ? restockAmount : 0
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -232,19 +234,20 @@ export default function InventoryItemDetailsPage() {
                     type="number" 
                     min="1"
                     value={restockAmount}
-                    onChange={(e) => setRestockAmount(Number(e.target.value))}
+                    onChange={(e) => setRestockAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="0"
                     className="border-2 border-black rounded-none h-16 font-black text-4xl text-center"
                   />
                 </div>
 
                 <div className="p-4 bg-black text-white rounded-none space-y-1 text-center">
                   <p className="text-[10px] font-black uppercase opacity-60">Projected Inventory</p>
-                  <p className="text-3xl font-black">{ (item.currentStock || 0) + restockAmount }</p>
+                  <p className="text-3xl font-black">{ (item.currentStock || 0) + currentVal }</p>
                 </div>
 
                 <Button 
                   onClick={handleRestock}
-                  disabled={restockAmount <= 0 || isProcessing}
+                  disabled={currentVal <= 0 || isProcessing}
                   className="w-full h-14 border-4 border-black bg-white text-black rounded-none font-black text-lg uppercase hover:bg-black hover:text-white transition-colors"
                 >
                   {isProcessing ? <Loader2 className="animate-spin" /> : "EXECUTE RESTOCK"}

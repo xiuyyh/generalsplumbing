@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -43,7 +42,7 @@ export default function RequestCategoryPage() {
   const categoryStr = (params.category as string) || ""
   const category = categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)
   
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState<number | "">(1)
   const [address, setAddress] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inventorySearch, setInventorySearch] = useState("")
@@ -118,7 +117,8 @@ export default function RequestCategoryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!firestore || !user || isSubmitting || !selectedItemIdInternal || !address) return
+    const qty = typeof quantity === 'number' ? quantity : 0
+    if (!firestore || !user || isSubmitting || !selectedItemIdInternal || !address || qty <= 0) return
     setIsSubmitting(true)
 
     const item = inventoryItems?.find(i => i.id === selectedItemIdInternal)
@@ -131,7 +131,7 @@ export default function RequestCategoryPage() {
         category,
         itemId: selectedItemIdInternal,
         itemName: item?.name || "Unknown Item",
-        quantity: Number(quantity),
+        quantity: Number(qty),
         deliveryAddress: address,
         requestTime: new Date().toISOString(),
         status: "pending",
@@ -141,7 +141,7 @@ export default function RequestCategoryPage() {
       if (telegramSettings?.chatId) {
         notifyNewRequest({
           workerName: workerName,
-          items: [{ name: item?.name || "Unknown Item", quantity: Number(quantity) }],
+          items: [{ name: item?.name || "Unknown Item", quantity: Number(qty) }],
           category: category,
           address: address,
           chatId: telegramSettings.chatId
@@ -290,7 +290,14 @@ export default function RequestCategoryPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-black uppercase opacity-60">Quantity</Label>
-                    <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-10 border-2 border-black rounded-none font-black" />
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      value={quantity} 
+                      onChange={(e) => setQuantity(e.target.value === "" ? "" : Number(e.target.value))} 
+                      placeholder="1"
+                      className="h-10 border-2 border-black rounded-none font-black" 
+                    />
                   </div>
                   <div className="space-y-1 flex items-end">
                     <Button type="submit" disabled={isSubmitting || !selectedItemIdInternal || !address} className="w-full h-10 bg-black text-white font-black text-xs uppercase rounded-none">

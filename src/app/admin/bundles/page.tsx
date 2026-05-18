@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -62,7 +61,7 @@ export default function BundleManagementPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [bundleName, setBundleName] = useState("")
   const [category, setCategory] = useState<string>("Rough")
-  const [bundleItems, setBundleItems] = useState<{ itemId: string, itemName: string, quantity: number }[]>([])
+  const [bundleItems, setBundleItems] = useState<{ itemId: string, itemName: string, quantity: number | "" }[]>([])
   const [inventorySearch, setInventorySearch] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -113,18 +112,24 @@ export default function BundleManagementPage() {
     setBundleItems(bundleItems.filter(i => i.itemId !== id))
   }
 
-  const updateQuantity = (id: string, qty: number) => {
-    setBundleItems(bundleItems.map(i => i.itemId === id ? { ...i, quantity: qty } : i))
+  const updateQuantity = (id: string, qty: string) => {
+    const val = qty === "" ? "" : Number(qty)
+    setBundleItems(bundleItems.map(i => i.itemId === id ? { ...i, quantity: val } : i))
   }
 
   const handleCreateBundle = () => {
     if (!firestore || !bundleName || bundleItems.length === 0 || isSubmitting) return
     setIsSubmitting(true)
 
+    const finalItems = bundleItems.map(i => ({
+      ...i,
+      quantity: typeof i.quantity === 'number' ? i.quantity : 0
+    }))
+
     const data = {
       name: bundleName,
       category,
-      items: bundleItems,
+      items: finalItems,
       createdAt: new Date().toISOString()
     }
 
@@ -234,7 +239,8 @@ export default function BundleManagementPage() {
                               type="number" 
                               min="1" 
                               value={item.quantity} 
-                              onChange={(e) => updateQuantity(item.itemId, Number(e.target.value))}
+                              onChange={(e) => updateQuantity(item.itemId, e.target.value)}
+                              placeholder="0"
                               className="w-16 h-8 border-2 border-black rounded-none text-center font-black"
                             />
                             <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeItemFromBundle(item.itemId)}>

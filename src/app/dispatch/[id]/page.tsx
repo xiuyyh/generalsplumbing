@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
@@ -50,10 +51,10 @@ export default function DispatchDetailPage() {
   }, [firestore, dispatch?.inventoryItemId])
   const { data: inventoryItem } = useDoc(itemRef)
 
-  // Fetch Related Staff Member
+  // Fetch Related Personnel from Users
   const staffRef = useMemoFirebase(() => {
     if (!firestore || !dispatch?.assignedToStaffMemberId) return null
-    return doc(firestore, "staffMembers", dispatch.assignedToStaffMemberId)
+    return doc(firestore, "users", dispatch.assignedToStaffMemberId)
   }, [firestore, dispatch?.assignedToStaffMemberId])
   const { data: staffMember } = useDoc(staffRef)
 
@@ -124,12 +125,12 @@ export default function DispatchDetailPage() {
               <div className="space-y-6">
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" /> Assigned Technician
+                    <User className="h-3 w-3" /> Assigned Personnel
                   </Label>
                   <p className="font-black text-lg uppercase leading-tight">
-                    {staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : "Unassigned / Deleted Staff"}
+                    {staffMember ? staffMember.displayName : "Unassigned / Account Deleted"}
                   </p>
-                  {staffMember && <p className="text-[10px] font-bold text-muted-foreground uppercase">{staffMember.officialRole}</p>}
+                  {staffMember && <p className="text-[10px] font-bold text-muted-foreground uppercase">{staffMember.role}</p>}
                 </div>
 
                 <div className="space-y-1">

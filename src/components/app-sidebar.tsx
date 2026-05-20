@@ -157,11 +157,6 @@ export function AppSidebar() {
             {isAdmin && (
               <>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === "/staff"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/staff"><Users /><span>Staff Registry</span></Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/clock"} className="h-10 rounded-none font-black uppercase text-[11px]">
                     <Link href="/clock"><QrCode /><span>QR Generator</span></Link>
                   </SidebarMenuButton>

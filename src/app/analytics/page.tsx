@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, doc, query, where } from "firebase/firestore"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { 
@@ -76,7 +76,8 @@ export default function AnalyticsPage() {
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return collection(firestore, "staffMembers")
+    // Fetch all approved personnel from Users collection
+    return query(collection(firestore, "users"), where("status", "==", "approved"))
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
 
@@ -217,7 +218,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-black">{staffMembers?.length || 0}</div>
-            <p className="text-[9px] font-bold uppercase text-muted-foreground tracking-tighter">Total registered personnel</p>
+            <p className="text-[9px] font-bold uppercase text-muted-foreground tracking-tighter">Total personnel</p>
           </CardContent>
         </Card>
         <Card className="border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-white">

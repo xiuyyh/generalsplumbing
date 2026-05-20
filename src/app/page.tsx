@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { collection, query, orderBy, limit, doc } from "firebase/firestore"
+import { collection, query, orderBy, limit, doc, where } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -49,7 +50,8 @@ export default function Dashboard() {
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return collection(firestore, "staffMembers")
+    // Count all approved personnel
+    return query(collection(firestore, "users"), where("status", "==", "approved"))
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
 
@@ -146,7 +148,7 @@ export default function Dashboard() {
   const activePunchTasks = punchLists?.filter(p => p.status !== 'completed') || []
 
   const stats = [
-    { title: "Staff Records", value: staffMembers?.length || "0", icon: Users, color: "text-black" },
+    { title: "Personnel", value: staffMembers?.length || "0", icon: Users, color: "text-black" },
     { title: "Low Stock Items", value: lowStock.length.toString(), icon: AlertTriangle, color: "text-black" },
     { title: "Punch Tasks", value: activePunchTasks.length.toString(), icon: ListChecks, color: "text-black" },
     { title: "Inventory Items", value: inventoryItems?.length || "0", icon: Package, color: "text-black" },

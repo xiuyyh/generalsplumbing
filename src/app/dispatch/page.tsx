@@ -93,7 +93,8 @@ export default function DispatchPage() {
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return collection(firestore, "staffMembers")
+    // Fetch all approved personnel from Users collection
+    return query(collection(firestore, "users"), where("status", "==", "approved"), orderBy("displayName", "asc"))
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
 
@@ -246,8 +247,8 @@ export default function DispatchPage() {
     const purpose = formData.get("purpose") as string
     const deliveryAddress = formData.get("deliveryAddress") as string
 
-    const assignedStaff = staffMembers?.find(s => s.id === assignedToStaffMemberId);
-    const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "Unknown";
+    const assignedStaff = staffMembers?.find(s => s.uid === assignedToStaffMemberId || s.id === assignedToStaffMemberId);
+    const staffName = assignedStaff ? assignedStaff.displayName : "Unknown";
 
     const selectedItems = items.filter(i => i.inventoryItemId)
     if (selectedItems.length === 0) {
@@ -521,8 +522,8 @@ export default function DispatchPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {staffMembers?.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id} className="font-bold">
-                        {staff.firstName} {staff.lastName}
+                      <SelectItem key={staff.uid || staff.id} value={staff.uid || staff.id} className="font-bold">
+                        {staff.displayName}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -577,11 +578,11 @@ export default function DispatchPage() {
                 ) : (
                   dispatches?.map((dispatch) => {
                     const item = inventoryItems?.find(i => i.id === dispatch.inventoryItemId)
-                    const staff = staffMembers?.find(s => s.id === dispatch.assignedToStaffMemberId)
+                    const staff = staffMembers?.find(s => s.uid === dispatch.assignedToStaffMemberId || s.id === dispatch.assignedToStaffMemberId)
                     return (
                       <TableRow key={dispatch.id} className="border-b-2 border-black/10 hover:bg-muted/30">
                         <TableCell className="font-black uppercase text-xs">{item?.name} x{dispatch.quantity}</TableCell>
-                        <TableCell className="font-bold uppercase text-[10px]">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown"}</TableCell>
+                        <TableCell className="font-bold uppercase text-[10px]">{staff ? staff.displayName : "Unknown"}</TableCell>
                         <TableCell className="hidden md:table-cell text-[10px] font-bold uppercase"><MapPin className="h-3 w-3 inline mr-1" />{dispatch.deliveryAddress || "Not set"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">

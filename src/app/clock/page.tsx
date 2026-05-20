@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, doc, query, orderBy, limit, serverTimestamp } from "firebase/firestore"
+import { collection, doc, query, orderBy, limit } from "firebase/firestore"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { QrCode, Loader2, ShieldAlert, RefreshCw, Clock, History } from "lucide-react"
+import { QrCode, Loader2, ShieldAlert, RefreshCw, Clock, History, Timer } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -30,7 +31,10 @@ export default function AdminQRCodeGenerator() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
-  const [expiryMinutes, setExpiryMinutes] = useState("30")
+  
+  // Custom expiry state
+  const [expiryValue, setExpiryValue] = useState<number>(8)
+  const [expiryUnit, setExpiryUnit] = useState<string>("hours")
   const [isGenerating, setIsGenerating] = useState(false)
 
   const profileRef = useMemoFirebase(() => {
@@ -70,11 +74,19 @@ export default function AdminQRCodeGenerator() {
   }
 
   const handleGenerateCode = () => {
-    if (!firestore || isGenerating) return
+    if (!firestore || isGenerating || !expiryValue || expiryValue <= 0) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a valid positive duration." })
+      return
+    }
     setIsGenerating(true)
 
+    // Calculate duration in milliseconds
+    let multiplier = 60000 // default minutes
+    if (expiryUnit === "hours") multiplier = 3600000
+    if (expiryUnit === "days") multiplier = 86400000
+
     const tokenId = Math.random().toString(36).substring(2, 15)
-    const expiresAt = new Date(Date.now() + parseInt(expiryMinutes) * 60000).toISOString()
+    const expiresAt = new Date(Date.now() + expiryValue * multiplier).toISOString()
     
     setDocumentNonBlocking(doc(firestore, "attendanceTokens", "current"), {
       value: tokenId,
@@ -82,7 +94,10 @@ export default function AdminQRCodeGenerator() {
       createdAt: new Date().toISOString()
     }, { merge: true })
 
-    toast({ title: "QR Code Generated", description: `Active for the next ${expiryMinutes} minutes.` })
+    toast({ 
+      title: "QR Code Generated", 
+      description: `Active for the next ${expiryValue} ${expiryUnit}.` 
+    })
     setIsGenerating(false)
   }
 
@@ -97,7 +112,7 @@ export default function AdminQRCodeGenerator() {
 
       <div className="grid grid-cols-1 gap-6">
         <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
-          <CardHeader className="bg-black text-white p-4">
+          <CardHeader className="bg-black text-white p-4 text-center">
             <CardTitle className="text-lg font-black uppercase">Live Check-In Code</CardTitle>
           </CardHeader>
           <CardContent className="p-8 flex flex-col items-center justify-center space-y-8">
@@ -114,9 +129,10 @@ export default function AdminQRCodeGenerator() {
             {activeToken && !isExpired ? (
               <div className="text-center space-y-2">
                 <p className="text-2xl font-black uppercase">Active Token</p>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  Expires: {new Date(activeToken.expiresAt).toLocaleTimeString()}
-                </p>
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  <Timer className="h-4 w-4" />
+                  <span>Expires: {new Date(activeToken.expiresAt).toLocaleString()}</span>
+                </div>
               </div>
             ) : (
               <div className="text-center space-y-2">
@@ -128,21 +144,34 @@ export default function AdminQRCodeGenerator() {
         </Card>
 
         <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-muted/10">
+          <CardHeader className="pb-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest">Token Lifespan Configuration</Label>
+          </CardHeader>
           <CardContent className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest">Token Lifespan</Label>
-              <Select value={expiryMinutes} onValueChange={setExpiryMinutes}>
-                <SelectTrigger className="h-12 border-2 border-black rounded-none font-black text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 MINUTES</SelectItem>
-                  <SelectItem value="30">30 MINUTES</SelectItem>
-                  <SelectItem value="60">1 HOUR</SelectItem>
-                  <SelectItem value="480">8 HOURS (FULL SHIFT)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input 
+                  type="number" 
+                  min="1"
+                  value={expiryValue}
+                  onChange={(e) => setExpiryValue(Number(e.target.value))}
+                  className="h-12 border-2 border-black rounded-none font-black text-lg text-center"
+                />
+              </div>
+              <div className="w-[140px]">
+                <Select value={expiryUnit} onValueChange={setExpiryUnit}>
+                  <SelectTrigger className="h-12 border-2 border-black rounded-none font-black text-sm uppercase">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minutes" className="font-black uppercase text-[10px]">Minutes</SelectItem>
+                    <SelectItem value="hours" className="font-black uppercase text-[10px]">Hours</SelectItem>
+                    <SelectItem value="days" className="font-black uppercase text-[10px]">Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            
             <Button 
               onClick={handleGenerateCode} 
               disabled={isGenerating}

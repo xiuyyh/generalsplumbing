@@ -29,6 +29,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
+const BUSINESS_TIMEZONE = 'America/New_York'
+
 export default function Dashboard() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
@@ -46,7 +48,6 @@ export default function Dashboard() {
     }
   }, [user, isUserLoading, router])
 
-  // Fetch real data
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return collection(firestore, "staffMembers")
@@ -71,6 +72,15 @@ export default function Dashboard() {
   }, [firestore, user])
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
+  const formatTime = (isoString: string) => {
+    return new Date(isoString).toLocaleTimeString('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   if (isUserLoading || isProfileLoading || !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -84,7 +94,6 @@ export default function Dashboard() {
   const isAdmin = role === "ADMIN"
   const isApproved = profile?.status === "approved" || isAdmin
 
-  // ISOLATED SECTION FOR PENDING USERS
   if (!isApproved) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-6">
@@ -106,14 +115,10 @@ export default function Dashboard() {
             </p>
           </div>
         </Card>
-        <p className="text-[9px] font-black uppercase text-muted-foreground max-w-xs mx-auto">
-          Please contact your supervisor if this delay exceeds 24 hours.
-        </p>
       </div>
     )
   }
 
-  // Redirect Workers to their only allowed section if they land on root dashboard
   if (role === "WORKER" && !isAdmin) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center space-y-6">
@@ -149,7 +154,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter">Admin Panel</h1>
-          <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Status: Online</p>
+          <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Business Time ({BUSINESS_TIMEZONE})</p>
         </div>
         <div className="flex gap-2">
           {isAdmin && (
@@ -187,32 +192,24 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader className="border-b-2 border-black py-2 px-3 bg-muted/20">
             <CardTitle className="text-xl font-black uppercase">Recent Activity</CardTitle>
-            <CardDescription className="font-bold uppercase text-[9px] tracking-widest text-muted-foreground">Latest System Events</CardDescription>
+            <CardDescription className="font-bold uppercase text-[9px] tracking-widest text-muted-foreground">Latest Events (Business Time)</CardDescription>
           </CardHeader>
           <CardContent className="p-2">
             <div className="space-y-2">
-              {timeEntries?.map((entry) => {
-                const staff = staffMembers?.find(s => s.id === entry.staffMemberId)
-                return (
-                  <div key={entry.id} className="flex items-start gap-3 p-2 border-2 border-transparent hover:border-black hover:bg-muted/30 transition-all">
-                    <div className="mt-1">
-                      <div className="h-3 w-3 bg-black" />
+              {timeEntries?.map((entry) => (
+                <div key={entry.id} className="flex items-start gap-3 p-2 border-2 border-transparent hover:border-black hover:bg-muted/30 transition-all">
+                  <div className="mt-1"><div className="h-3 w-3 bg-black" /></div>
+                  <div className="flex-1 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-black uppercase">{entry.displayName || "Unknown Staff"}</p>
+                      <span className="text-[10px] font-black text-muted-foreground">{formatTime(entry.clockInTime)}</span>
                     </div>
-                    <div className="flex-1 space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-black uppercase">{staff ? `${staff.firstName} ${staff.lastName}` : "Unknown Staff"}</p>
-                        <span className="text-[10px] font-black text-muted-foreground">{new Date(entry.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-black text-white text-[8px] px-1 py-0 h-4 font-black uppercase rounded-none">
-                          {entry.clockOutTime ? "Shift Completed" : "Clocked In"}
-                        </Badge>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{staff?.officialRole}</p>
-                      </div>
-                    </div>
+                    <Badge className="bg-black text-white text-[8px] px-1 py-0 h-4 font-black uppercase rounded-none">
+                      {entry.clockOutTime ? "Shift Completed" : "Clocked In"}
+                    </Badge>
                   </div>
-                )
-              })}
+                </div>
+              ))}
               {(!timeEntries || timeEntries.length === 0) && (
                 <div className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">No recent shift activity.</div>
               )}
@@ -239,25 +236,13 @@ export default function Dashboard() {
                     <Badge variant="destructive" className="font-black rounded-none px-2 py-0 text-[10px]">{item.currentStock}</Badge>
                   </div>
                   <div className="w-full bg-muted h-3 border-2 border-black overflow-hidden p-0.5">
-                    <div 
-                      className="bg-black h-full" 
-                      style={{ width: `${Math.min(100, (item.currentStock / (item.reorderThreshold || 1)) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-[8px] font-black text-muted-foreground uppercase">Min: {item.reorderThreshold}</p>
-                    <p className="text-[8px] font-black text-black uppercase">IN STOCK</p>
+                    <div className="bg-black h-full" style={{ width: `${Math.min(100, (item.currentStock / (item.reorderThreshold || 1)) * 100)}%` }} />
                   </div>
                 </div>
               )) : (
                 <div className="py-10 text-center text-[10px] font-black uppercase text-muted-foreground">All stock levels optimal.</div>
               )}
             </div>
-            {(isAdmin || role === "INVENTORY") && (
-              <Button className="w-full mt-4 border-2 border-black font-black uppercase h-10 rounded-none text-black hover:bg-black hover:text-white transition-colors text-xs" variant="outline" asChild>
-                <Link href="/inventory">Manage Catalog</Link>
-              </Button>
-            )}
           </CardContent>
         </Card>
       </div>

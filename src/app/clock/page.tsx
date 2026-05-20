@@ -27,13 +27,14 @@ import { QRCodeSVG } from "qrcode.react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 
+const BUSINESS_TIMEZONE = 'America/New_York'
+
 export default function AdminQRCodeGenerator() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
   
-  // Custom expiry state
-  const [expiryValue, setExpiryValue] = useState<number>(8)
+  const [expiryValue, setExpiryValue] = useState<number | "">(8)
   const [expiryUnit, setExpiryUnit] = useState<string>("hours")
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -74,19 +75,19 @@ export default function AdminQRCodeGenerator() {
   }
 
   const handleGenerateCode = () => {
-    if (!firestore || isGenerating || !expiryValue || expiryValue <= 0) {
+    const val = typeof expiryValue === 'number' ? expiryValue : 0
+    if (!firestore || isGenerating || val <= 0) {
       toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a valid positive duration." })
       return
     }
     setIsGenerating(true)
 
-    // Calculate duration in milliseconds
-    let multiplier = 60000 // default minutes
+    let multiplier = 60000 
     if (expiryUnit === "hours") multiplier = 3600000
     if (expiryUnit === "days") multiplier = 86400000
 
     const tokenId = Math.random().toString(36).substring(2, 15)
-    const expiresAt = new Date(Date.now() + expiryValue * multiplier).toISOString()
+    const expiresAt = new Date(Date.now() + val * multiplier).toISOString()
     
     setDocumentNonBlocking(doc(firestore, "attendanceTokens", "current"), {
       value: tokenId,
@@ -96,9 +97,17 @@ export default function AdminQRCodeGenerator() {
 
     toast({ 
       title: "QR Code Generated", 
-      description: `Active for the next ${expiryValue} ${expiryUnit}.` 
+      description: `Active for the next ${val} ${expiryUnit}.` 
     })
     setIsGenerating(false)
+  }
+
+  const formatDateTime = (isoString: string) => {
+    return new Date(isoString).toLocaleString('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
   }
 
   return (
@@ -131,7 +140,7 @@ export default function AdminQRCodeGenerator() {
                 <p className="text-2xl font-black uppercase">Active Token</p>
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                   <Timer className="h-4 w-4" />
-                  <span>Expires: {new Date(activeToken.expiresAt).toLocaleString()}</span>
+                  <span>Expires: {formatDateTime(activeToken.expiresAt)} (Business Time)</span>
                 </div>
               </div>
             ) : (
@@ -154,8 +163,9 @@ export default function AdminQRCodeGenerator() {
                   type="number" 
                   min="1"
                   value={expiryValue}
-                  onChange={(e) => setExpiryValue(Number(e.target.value))}
+                  onChange={(e) => setExpiryValue(e.target.value === "" ? "" : Number(e.target.value))}
                   className="h-12 border-2 border-black rounded-none font-black text-lg text-center"
+                  placeholder="0"
                 />
               </div>
               <div className="w-[140px]">

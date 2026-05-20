@@ -41,6 +41,8 @@ import {
 import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 
+const BUSINESS_TIMEZONE = 'America/New_York'
+
 export default function TimesheetsPage() {
   const { user, isUserLoading: isAuthLoading } = useUser()
   const firestore = useFirestore()
@@ -75,6 +77,15 @@ export default function TimesheetsPage() {
     return (diff / (1000 * 60 * 60)).toFixed(2) + "h"
   }
 
+  const formatDateTime = (isoString: string) => {
+    if (!isoString) return "--:--"
+    return new Date(isoString).toLocaleString('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      dateStyle: 'short',
+      timeStyle: 'short'
+    })
+  }
+
   const handleRowClick = (entry: any) => {
     setSelectedEntry(entry)
     setIsDetailsOpen(true)
@@ -97,7 +108,7 @@ export default function TimesheetsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black uppercase tracking-tighter">Attendance History</h1>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Verified Session Logs</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Verified Session Logs (Business Time: {BUSINESS_TIMEZONE})</p>
         </div>
         {isAdmin && (
           <Button variant="outline" className="border-2 border-black rounded-none font-black h-10 px-4">
@@ -116,7 +127,7 @@ export default function TimesheetsPage() {
               <TableHeader className="bg-black">
                 <TableRow className="hover:bg-black">
                   <TableHead className="text-white font-black uppercase text-[10px]">Personnel</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Date</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px]">Start Time</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Duration</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px] text-right">Action</TableHead>
                 </TableRow>
@@ -132,7 +143,7 @@ export default function TimesheetsPage() {
                       onClick={() => handleRowClick(entry)}
                     >
                       <TableCell className="font-black text-xs uppercase">{entry.displayName || "Unknown"}</TableCell>
-                      <TableCell className="text-[10px] font-bold uppercase">{new Date(entry.clockInTime).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-[10px] font-bold uppercase">{formatDateTime(entry.clockInTime)}</TableCell>
                       <TableCell className="hidden md:table-cell font-mono text-xs font-black">
                         {calculateHours(entry.clockInTime, entry.clockOutTime)}
                       </TableCell>
@@ -159,7 +170,7 @@ export default function TimesheetsPage() {
               <div className="flex justify-between text-xs"><span className="font-bold uppercase opacity-60">Total Logs</span><span className="font-black">{timeEntries?.length || 0}</span></div>
             </div>
             <p className="text-[9px] font-bold text-white/50 uppercase leading-relaxed">
-              Attendance records are verified via cryptographically signed QR codes during terminal scan.
+              Attendance records are verified via cryptographically signed QR codes during terminal scan. Times reflect business headquarters ({BUSINESS_TIMEZONE}).
             </p>
           </CardContent>
         </Card>
@@ -178,8 +189,8 @@ export default function TimesheetsPage() {
                   <p className="font-black text-sm uppercase">{selectedEntry.displayName}</p>
                 </div>
                 <div className="p-4 border-2 border-black bg-muted/20 grid grid-cols-2 gap-4">
-                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-In</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString()}</p></div>
-                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-Out</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString() : "--:--"}</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-In</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString('en-US', { timeZone: BUSINESS_TIMEZONE, hour: '2-digit', minute: '2-digit' })}</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-Out</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString('en-US', { timeZone: BUSINESS_TIMEZONE, hour: '2-digit', minute: '2-digit' }) : "--:--"}</p></div>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t-2 border-black">
                   <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Total Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>

@@ -28,6 +28,8 @@ import { toast } from "@/hooks/use-toast"
 import { Html5Qrcode } from "html5-qrcode"
 import Link from "next/link"
 
+const BUSINESS_TIMEZONE = 'America/New_York'
+
 export default function StaffAttendancePage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
@@ -71,7 +73,6 @@ export default function StaffAttendancePage() {
     fetchActiveShift()
   }, [firestore, user])
 
-  // Cleanup scanner on unmount
   useEffect(() => {
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
@@ -122,26 +123,24 @@ export default function StaffAttendancePage() {
     if (!firestore || !user || !profile || !currentToken) return
     
     if (decodedText !== currentToken.value) {
-      toast({ variant: "destructive", title: "Invalid Token", description: "This QR code is not recognized by the system." })
+      toast({ variant: "destructive", title: "Invalid Token", description: "This QR code is not recognized." })
       return
     }
 
     if (new Date(currentToken.expiresAt) < new Date()) {
-      toast({ variant: "destructive", title: "Token Expired", description: "This QR code has expired. Request a new one from admin." })
+      toast({ variant: "destructive", title: "Token Expired", description: "This code has expired. Request a new one." })
       return
     }
 
     await stopScanner()
 
     if (activeShift) {
-      // Clock Out
       updateDocumentNonBlocking(doc(firestore, "timeEntries", activeShift.id), {
         clockOutTime: new Date().toISOString()
       })
-      toast({ title: "Clock Out Successful", description: "Shift ended. Have a great day!" })
+      toast({ title: "Clock Out Successful", description: "Shift ended." })
       setActiveShift(null)
     } else {
-      // Clock In
       addDocumentNonBlocking(collection(firestore, "timeEntries"), {
         userId: user.uid,
         displayName: profile.displayName || user.email,
@@ -149,13 +148,21 @@ export default function StaffAttendancePage() {
         clockOutTime: null,
         notes: "Verified via QR Terminal"
       })
-      toast({ title: "Clock In Successful", description: "Shift started. Work safe!" })
+      toast({ title: "Clock In Successful", description: "Shift started." })
       setTimeout(() => window.location.reload(), 1500)
     }
   }
 
-  function onScanError(err: any) {
-    // Suppress noise
+  function onScanError(err: any) {}
+
+  const formatTime = (isoString: string) => {
+    if (!isoString) return "--:--"
+    return new Date(isoString).toLocaleTimeString('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
   }
 
   if (isUserLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
@@ -179,8 +186,8 @@ export default function StaffAttendancePage() {
         <CardContent className="p-8 space-y-8 text-center">
           {activeShift ? (
             <div className="space-y-2">
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Current Session Started</p>
-              <p className="text-3xl font-black tabular-nums">{new Date(activeShift.clockInTime).toLocaleTimeString()}</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Shift Started (Local Business Time)</p>
+              <p className="text-3xl font-black tabular-nums">{formatTime(activeShift.clockInTime)}</p>
             </div>
           ) : (
             <div className="py-6">

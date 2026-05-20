@@ -14,21 +14,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
-    "StaffMember": {
-      "title": "StaffMember",
+    "AttendanceToken": {
+      "title": "AttendanceToken",
       "type": "object",
-      "description": "Represents an individual staff member or employee within Generals Plumbing.",
+      "description": "A secure token used for QR code clock-in/out verification.",
       "properties": {
         "id": { "type": "string" },
-        "firstName": { "type": "string" },
-        "lastName": { "type": "string" },
-        "officialRole": { "type": "string" },
-        "address": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "phoneNumber": { "type": "string" },
-        "hireDate": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "firstName", "lastName", "officialRole", "address", "email"]
+        "value": { "type": "string", "description": "Unique random token value." },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     },
     "MaterialRequest": {
       "title": "MaterialRequest",
@@ -44,19 +39,20 @@
         "quantity": { "type": "number" },
         "deliveryAddress": { "type": "string" },
         "requestTime": { "type": "string", "format": "date-time" },
-        "deliveryTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "dispatched", "rejected"] },
-        "rejectionNote": { "type": "string", "description": "Note explaining why the request was rejected." }
-      },
-      "required": ["workerUid", "category", "itemId", "quantity", "deliveryAddress", "requestTime", "status"]
+        "rejectionNote": { "type": "string" }
+      }
     },
-    "AppSetting": {
-      "title": "AppSetting",
+    "TimeEntry": {
+      "title": "TimeEntry",
       "type": "object",
-      "description": "Global application configurations.",
+      "description": "A technician's clock-in/out record mapped to their User ID.",
       "properties": {
-        "signupDisabled": { "type": "boolean" },
-        "chatId": { "type": "string", "description": "Telegram Chat ID for notifications." }
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "clockInTime": { "type": "string", "format": "date-time" },
+        "clockOutTime": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
       }
     },
     "InventoryItem": {
@@ -68,33 +64,6 @@
         "name": { "type": "string" },
         "currentStock": { "type": "number" },
         "reorderThreshold": { "type": "number" }
-      },
-      "required": ["id", "name", "currentStock"]
-    },
-    "InventoryDispatch": {
-      "title": "InventoryDispatch",
-      "type": "object",
-      "description": "Record of materials leaving the inventory.",
-      "properties": {
-        "inventoryItemId": { "type": "string" },
-        "quantity": { "type": "number" },
-        "dispatchDateTime": { "type": "string", "format": "date-time" },
-        "dispatchedByStaffMemberId": { "type": "string" },
-        "assignedToStaffMemberId": { "type": "string" },
-        "purpose": { "type": "string" },
-        "deliveryAddress": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "TimeEntry": {
-      "title": "TimeEntry",
-      "type": "object",
-      "description": "A technician's clock-in/out record.",
-      "properties": {
-        "staffMemberId": { "type": "string" },
-        "clockInTime": { "type": "string", "format": "date-time" },
-        "clockOutTime": { "type": "string", "format": "date-time" },
-        "notes": { "type": "string" }
       }
     },
     "PunchList": {
@@ -107,8 +76,7 @@
         "dueDate": { "type": "string", "format": "date-time" },
         "address": { "type": "string" },
         "status": { "type": "string", "enum": ["submitted", "completed"] },
-        "photoUrls": { "type": "array", "items": { "type": "string" } },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "photoUrls": { "type": "array", "items": { "type": "string" } }
       }
     }
   },
@@ -120,25 +88,17 @@
       "schema": "#/backend/entities/User",
       "description": "User profile with role."
     },
+    "/attendanceTokens/{tokenId}": {
+      "schema": "#/backend/entities/AttendanceToken",
+      "description": "Active QR tokens for clocking."
+    },
     "/materialRequests/{requestId}": {
       "schema": "#/backend/entities/MaterialRequest",
       "description": "Worker material requests."
     },
-    "/inventoryDispatches/{dispatchId}": {
-      "schema": "#/backend/entities/InventoryDispatch",
-      "description": "Record of materials leaving inventory."
-    },
     "/timeEntries/{entryId}": {
       "schema": "#/backend/entities/TimeEntry",
       "description": "Clock in/out records."
-    },
-    "/appSettings/{settingId}": {
-      "schema": "#/backend/entities/AppSetting",
-      "description": "Settings."
-    },
-    "/staffMembers/{staffMemberId}": {
-      "schema": "#/backend/entities/StaffMember",
-      "description": "Staff registry."
     },
     "/inventoryItems/{inventoryItemId}": {
       "schema": "#/backend/entities/InventoryItem",

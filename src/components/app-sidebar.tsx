@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Hammer,
   UserCog,
-  Clock
+  QrCode,
+  Scan
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -99,6 +100,14 @@ export function AppSidebar() {
               </SidebarMenuItem>
             )}
 
+            {isApproved && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/attendance"} className="h-10 rounded-none font-black uppercase text-[11px]">
+                  <Link href="/attendance"><Scan /><span>Clock In / Out</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
             {canAccessRequests && (
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
@@ -154,7 +163,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/clock"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/clock"><Clock /><span>Attendance Terminal</span></Link>
+                    <Link href="/clock"><QrCode /><span>QR Generator</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

@@ -39,7 +39,8 @@ import {
   Plus, 
   Trash2, 
   ShoppingBag,
-  PackageCheck
+  PackageCheck,
+  MessageSquare
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
@@ -95,6 +96,7 @@ export default function RequestCategoryPage() {
     return query(
       collection(firestore, "materialRequests"), 
       where("category", "==", category),
+      where("workerUid", "==", user.uid),
       orderBy("requestTime", "desc")
     )
   }, [firestore, user, category])
@@ -367,12 +369,20 @@ export default function RequestCategoryPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <Badge className={cn(
-                            "rounded-none font-black uppercase text-[8px] h-5",
-                            req.status === 'dispatched' ? "bg-green-600" : req.status === 'rejected' ? "bg-red-600" : "bg-amber-500"
-                          )}>
-                            {req.status}
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge className={cn(
+                              "rounded-none font-black uppercase text-[8px] h-5",
+                              req.status === 'dispatched' ? "bg-green-600" : req.status === 'rejected' ? "bg-red-600" : "bg-amber-500"
+                            )}>
+                              {req.status}
+                            </Badge>
+                            {req.status === 'rejected' && req.rejectionNote && (
+                              <div className="flex items-start gap-1 text-[9px] font-black text-red-600 uppercase leading-tight max-w-[200px]">
+                                <MessageSquare className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+                                <span>Note: {req.rejectionNote}</span>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right font-mono text-[9px]">
                           {new Date(req.requestTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}

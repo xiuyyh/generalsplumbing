@@ -45,7 +45,8 @@
         "deliveryAddress": { "type": "string" },
         "requestTime": { "type": "string", "format": "date-time" },
         "deliveryTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["pending", "dispatched", "rejected"] }
+        "status": { "type": "string", "enum": ["pending", "dispatched", "rejected"] },
+        "rejectionNote": { "type": "string", "description": "Optional note explaining why the request was rejected." }
       },
       "required": ["workerUid", "category", "itemId", "quantity", "deliveryAddress", "requestTime", "status"]
     },

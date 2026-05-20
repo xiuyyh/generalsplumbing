@@ -35,6 +35,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight, ShieldAlert, CheckCircle2, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
@@ -54,6 +61,11 @@ export default function DispatchPage() {
   // Search state for searchable item picker
   const [inventorySearch, setInventorySearch] = useState("")
   const [openPickerId, setOpenPickerId] = useState<number | null>(null)
+
+  // Decline Dialog state
+  const [isDeclineDialogOpen, setIsDeclineDialogOpen] = useState(false)
+  const [rejectionRequestId, setRejectionRequestId] = useState<string | null>(null)
+  const [rejectionNote, setRejectionNote] = useState("")
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -185,13 +197,24 @@ export default function DispatchPage() {
     }
   }
 
-  const handleDeclineRequest = (reqId: string) => {
-    if (!firestore || isSubmitting) return
-    updateDocumentNonBlocking(doc(firestore, "materialRequests", reqId), {
+  const openDeclineDialog = (reqId: string) => {
+    setRejectionRequestId(reqId)
+    setRejectionNote("")
+    setIsDeclineDialogOpen(true)
+  }
+
+  const handleDeclineRequest = () => {
+    if (!firestore || !rejectionRequestId || isSubmitting) return
+    
+    updateDocumentNonBlocking(doc(firestore, "materialRequests", rejectionRequestId), {
       status: "rejected",
+      rejectionNote: rejectionNote,
       rejectedAt: new Date().toISOString()
     })
+    
     toast({ variant: "destructive", title: "Request Rejected", description: "Worker material request has been declined." })
+    setIsDeclineDialogOpen(false)
+    setRejectionRequestId(null)
   }
 
   const handleDeleteRequest = (reqId: string) => {
@@ -345,7 +368,7 @@ export default function DispatchPage() {
                             Authorize
                           </Button>
                           <Button 
-                            onClick={() => handleDeclineRequest(req.id)}
+                            onClick={() => openDeclineDialog(req.id)}
                             disabled={isSubmitting}
                             variant="outline"
                             className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white"
@@ -577,6 +600,34 @@ export default function DispatchPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isDeclineDialogOpen} onOpenChange={setIsDeclineDialogOpen}>
+        <DialogContent className="border-4 border-black rounded-none">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase">Decline Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <Label className="font-black uppercase text-[10px]">Rejection Reason / Note for Worker</Label>
+              <Input 
+                value={rejectionNote} 
+                onChange={(e) => setRejectionNote(e.target.value)} 
+                placeholder="e.g. Out of stock until next week." 
+                className="h-12 border-2 border-black rounded-none font-bold"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleDeclineRequest} 
+              variant="destructive"
+              className="w-full h-12 rounded-none font-black uppercase border-2 border-black"
+            >
+              Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

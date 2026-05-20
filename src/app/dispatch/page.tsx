@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { collection, doc, writeBatch, serverTimestamp, orderBy, query, where } from "firebase/firestore"
@@ -43,7 +43,26 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ClipboardList, Send, Loader2, MapPin, History, Trash2, BellRing, Plus, Search, Check, ArrowRight, ShieldAlert, CheckCircle2, X } from "lucide-react"
+import { 
+  ClipboardList, 
+  Send, 
+  Loader2, 
+  MapPin, 
+  History, 
+  Trash2, 
+  BellRing, 
+  Plus, 
+  Search, 
+  Check, 
+  ArrowRight, 
+  ShieldAlert, 
+  CheckCircle2, 
+  X,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  FileText
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
@@ -61,6 +80,9 @@ export default function DispatchPage() {
   // Search state for searchable item picker
   const [inventorySearch, setInventorySearch] = useState("")
   const [openPickerId, setOpenPickerId] = useState<number | null>(null)
+
+  // Expanded batches state
+  const [expandedBatches, setExpandedBatches] = useState<string[]>([])
 
   // Decline Dialog state
   const [isDeclineDialogOpen, setIsDeclineDialogOpen] = useState(false)
@@ -93,7 +115,6 @@ export default function DispatchPage() {
 
   const staffQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    // Fetch all approved personnel from Users collection
     return query(collection(firestore, "users"), where("status", "==", "approved"), orderBy("displayName", "asc"))
   }, [firestore, user])
   const { data: staffMembers } = useCollection(staffQuery)
@@ -104,12 +125,36 @@ export default function DispatchPage() {
   }, [firestore, user])
   const { data: dispatches, isLoading: isDispLoading } = useCollection(recentDispatchesQuery)
 
-  // Pending requests for review
   const pendingRequestsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
     return query(collection(firestore, "materialRequests"), where("status", "==", "pending"), orderBy("requestTime", "desc"))
   }, [firestore, user])
   const { data: pendingRequests, isLoading: isReqLoading } = useCollection(pendingRequestsQuery)
+
+  // Group pending requests by batch (Worker + RequestTime)
+  const groupedRequests = React.useMemo(() => {
+    if (!pendingRequests) return [];
+    const groups: Record<string, any> = {};
+    
+    pendingRequests.forEach(req => {
+      const key = `${req.workerUid}_${req.requestTime}`;
+      if (!groups[key]) {
+        groups[key] = {
+          id: key,
+          workerName: req.workerName,
+          address: req.deliveryAddress,
+          category: req.category,
+          time: req.requestTime,
+          items: []
+        };
+      }
+      groups[key].items.push(req);
+    });
+    
+    return Object.values(groups).sort((a: any, b: any) => 
+      new Date(b.time).getTime() - new Date(a.time).getTime()
+    );
+  }, [pendingRequests]);
 
   if (isUserLoading || isProfileLoading || !user) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="animate-spin" /></div>
 
@@ -128,6 +173,12 @@ export default function DispatchPage() {
           <Link href="/">Return to Terminal</Link>
         </Button>
       </div>
+    )
+  }
+
+  const toggleBatch = (batchId: string) => {
+    setExpandedBatches(prev => 
+      prev.includes(batchId) ? prev.filter(id => id !== batchId) : [...prev, batchId]
     )
   }
 
@@ -228,9 +279,7 @@ export default function DispatchPage() {
 
   const handleDeleteDispatch = (dispatch: any) => {
     if (!firestore) return
-    
     const confirmed = window.confirm(`TERMINATE LOG: Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.`)
-    
     if (confirmed) {
       deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", dispatch.id))
       toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
@@ -341,56 +390,93 @@ export default function DispatchPage() {
             <Table>
               <TableHeader className="bg-black">
                 <TableRow className="hover:bg-black">
+                  <TableHead className="text-white font-black uppercase text-[10px] w-12"></TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px]">Worker</TableHead>
-                  <TableHead className="text-white font-black uppercase text-[10px]">Material</TableHead>
+                  <TableHead className="text-white font-black uppercase text-[10px]">Material / Count</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px] hidden md:table-cell">Job Phase</TableHead>
                   <TableHead className="text-white font-black uppercase text-[10px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isReqLoading ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                 ) : (
-                  pendingRequests?.map((req) => (
-                    <TableRow key={req.id} className="border-b-2 border-black/10 hover:bg-muted/30">
-                      <TableCell>
-                        <div className="font-black uppercase text-xs">{req.workerName}</div>
-                        <div className="text-[9px] font-bold text-muted-foreground uppercase"><MapPin className="h-2 w-2 inline mr-1" />{req.deliveryAddress}</div>
-                      </TableCell>
-                      <TableCell className="font-black uppercase text-xs">{req.itemName} x{req.quantity}</TableCell>
-                      <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]">{req.category}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            onClick={() => handleAuthorizeRequest(req)}
-                            disabled={isSubmitting}
-                            className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3"
-                          >
-                            Authorize
-                          </Button>
-                          <Button 
-                            onClick={() => openDeclineDialog(req.id)}
-                            disabled={isSubmitting}
-                            variant="outline"
-                            className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white"
-                          >
-                            Decline
-                          </Button>
-                          <Button 
-                            onClick={() => handleDeleteRequest(req.id)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  groupedRequests.map((batch: any) => {
+                    const isStacked = batch.items.length > 1;
+                    const isExpanded = expandedBatches.includes(batch.id);
+
+                    if (!isStacked) {
+                      const req = batch.items[0];
+                      return (
+                        <TableRow key={req.id} className="border-b-2 border-black/10 hover:bg-muted/30">
+                          <TableCell className="text-center"><FileText className="h-4 w-4 opacity-40 mx-auto" /></TableCell>
+                          <TableCell>
+                            <div className="font-black uppercase text-xs">{req.workerName}</div>
+                            <div className="text-[9px] font-bold text-muted-foreground uppercase"><MapPin className="h-2 w-2 inline mr-1" />{req.deliveryAddress}</div>
+                          </TableCell>
+                          <TableCell className="font-black uppercase text-xs">{req.itemName} x{req.quantity}</TableCell>
+                          <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]">{req.category}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button onClick={() => handleAuthorizeRequest(req)} disabled={isSubmitting} className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3">Authorize</Button>
+                              <Button onClick={() => openDeclineDialog(req.id)} disabled={isSubmitting} variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white">Decline</Button>
+                              <Button onClick={() => handleDeleteRequest(req.id)} variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return (
+                      <React.Fragment key={batch.id}>
+                        <TableRow 
+                          className="border-b-2 border-black/10 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                          onClick={() => toggleBatch(batch.id)}
+                        >
+                          <TableCell className="text-center">
+                            {isExpanded ? <ChevronDown className="h-4 w-4 mx-auto" /> : <ChevronRight className="h-4 w-4 mx-auto" />}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-black uppercase text-xs flex items-center gap-2">
+                              {batch.workerName} 
+                              <Badge className="bg-black text-white text-[8px] rounded-none px-1 h-4">STACKED</Badge>
+                            </div>
+                            <div className="text-[9px] font-bold text-muted-foreground uppercase"><MapPin className="h-2 w-2 inline mr-1" />{batch.address}</div>
+                          </TableCell>
+                          <TableCell className="font-black uppercase text-[10px] text-muted-foreground">
+                            {batch.items.length} ITEMS IN BATCH
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]">{batch.category}</TableCell>
+                          <TableCell className="text-right">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Expand to manage individual items</p>
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && batch.items.map((req: any) => (
+                          <TableRow key={req.id} className="border-b border-black/5 bg-white">
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="font-black uppercase text-xs">
+                              <div className="flex items-center gap-2">
+                                <Layers className="h-3 w-3 text-muted-foreground" />
+                                {req.itemName} x{req.quantity}
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell"></TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button onClick={() => handleAuthorizeRequest(req)} disabled={isSubmitting} className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3">Authorize</Button>
+                                <Button onClick={() => openDeclineDialog(req.id)} disabled={isSubmitting} variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white">Decline</Button>
+                                <Button onClick={() => handleDeleteRequest(req.id)} variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })
                 )}
-                {(!pendingRequests || pendingRequests.length === 0) && !isReqLoading && (
-                  <TableRow><TableCell colSpan={4} className="py-12 text-center text-[10px] font-black uppercase text-muted-foreground">No pending requests for review.</TableCell></TableRow>
+                {groupedRequests.length === 0 && !isReqLoading && (
+                  <TableRow><TableCell colSpan={5} className="py-12 text-center text-[10px] font-black uppercase text-muted-foreground">No pending requests for review.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

@@ -108,7 +108,7 @@ export function AppSidebar() {
             )}
 
             {canAccessRequests && (
-              <Collapsible defaultOpen className="group/collapsible">
+              <Collapsible className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className="h-10 rounded-none font-black uppercase text-[11px]">

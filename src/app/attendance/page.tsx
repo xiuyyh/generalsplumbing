@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -28,14 +27,13 @@ import { toast } from "@/hooks/use-toast"
 import { Html5Qrcode } from "html5-qrcode"
 import Link from "next/link"
 
-const BUSINESS_TIMEZONE = 'America/New_York'
-
 export default function StaffAttendancePage() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
   const [isScanning, setIsScanning] = useState(false)
   const [activeShift, setActiveShift] = useState<any>(null)
+  const [localTimeZone, setLocalTimeZone] = useState<string>("")
   const scannerRef = useRef<Html5Qrcode | null>(null)
 
   const profileRef = useMemoFirebase(() => {
@@ -52,6 +50,7 @@ export default function StaffAttendancePage() {
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace("/auth")
+    setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
   }, [user, isUserLoading, router])
 
   useEffect(() => {
@@ -157,8 +156,7 @@ export default function StaffAttendancePage() {
 
   const formatTime = (isoString: string) => {
     if (!isoString) return "--:--"
-    return new Date(isoString).toLocaleTimeString('en-US', {
-      timeZone: BUSINESS_TIMEZONE,
+    return new Date(isoString).toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
@@ -176,7 +174,7 @@ export default function StaffAttendancePage() {
 
       <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
         <CardHeader className="bg-black text-white p-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-xs font-black uppercase">Operation Status</CardTitle>
+          <CardTitle className="text-xs font-black uppercase">Status</CardTitle>
           {activeShift ? (
             <Badge className="bg-green-600 text-white font-black rounded-none border-2 border-white">ON-DUTY</Badge>
           ) : (
@@ -186,8 +184,8 @@ export default function StaffAttendancePage() {
         <CardContent className="p-8 space-y-8 text-center">
           {activeShift ? (
             <div className="space-y-2">
-              <p className="text-[10px] font-black uppercase text-muted-foreground">Shift Started (Local Business Time)</p>
-              <p className="text-3xl font-black tabular-nums">{formatTime(activeShift.clockInTime)}</p>
+              <p className="text-[10px] font-black uppercase text-muted-foreground">Shift Started ({localTimeZone || "Local Time"})</p>
+              <p className="text-3xl font-black tabular-nums">{localTimeZone ? formatTime(activeShift.clockInTime) : "..."}</p>
             </div>
           ) : (
             <div className="py-6">

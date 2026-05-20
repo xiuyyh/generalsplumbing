@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -27,8 +26,6 @@ import { QRCodeSVG } from "qrcode.react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 
-const BUSINESS_TIMEZONE = 'America/New_York'
-
 export default function AdminQRCodeGenerator() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
@@ -37,6 +34,7 @@ export default function AdminQRCodeGenerator() {
   const [expiryValue, setExpiryValue] = useState<number | "">(8)
   const [expiryUnit, setExpiryUnit] = useState<string>("hours")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [localTimeZone, setLocalTimeZone] = useState<string>("")
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -55,6 +53,7 @@ export default function AdminQRCodeGenerator() {
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace("/auth")
+    setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
   }, [user, isUserLoading, router])
 
   if (isUserLoading || isProfileLoading || !user) {
@@ -103,8 +102,7 @@ export default function AdminQRCodeGenerator() {
   }
 
   const formatDateTime = (isoString: string) => {
-    return new Date(isoString).toLocaleString('en-US', {
-      timeZone: BUSINESS_TIMEZONE,
+    return new Date(isoString).toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short'
     })
@@ -114,15 +112,15 @@ export default function AdminQRCodeGenerator() {
     <div className="max-w-xl mx-auto space-y-8">
       <div className="text-center">
         <h1 className="text-4xl font-black uppercase tracking-tighter flex items-center justify-center gap-3">
-          <QrCode className="h-10 w-10" /> Shift Authorization
+          <QrCode className="h-10 w-10" /> Auth Terminal
         </h1>
-        <p className="text-muted-foreground font-bold tracking-widest uppercase text-[10px]">Administrative Token Terminal</p>
+        <p className="text-muted-foreground font-bold tracking-widest uppercase text-[10px]">Zone: {localTimeZone || "Detecting..."}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
         <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
           <CardHeader className="bg-black text-white p-4 text-center">
-            <CardTitle className="text-lg font-black uppercase">Live Check-In Code</CardTitle>
+            <CardTitle className="text-lg font-black uppercase">Live Access Code</CardTitle>
           </CardHeader>
           <CardContent className="p-8 flex flex-col items-center justify-center space-y-8">
             <div className={`p-4 border-4 border-black ${isExpired ? "opacity-20 grayscale" : ""}`}>
@@ -140,7 +138,7 @@ export default function AdminQRCodeGenerator() {
                 <p className="text-2xl font-black uppercase">Active Token</p>
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                   <Timer className="h-4 w-4" />
-                  <span>Expires: {formatDateTime(activeToken.expiresAt)} (Business Time)</span>
+                  <span>Expires: {localTimeZone ? formatDateTime(activeToken.expiresAt) : "..."}</span>
                 </div>
               </div>
             ) : (
@@ -154,7 +152,7 @@ export default function AdminQRCodeGenerator() {
 
         <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-muted/10">
           <CardHeader className="pb-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest">Token Lifespan Configuration</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest">Lifespan Configuration</Label>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="flex gap-2">

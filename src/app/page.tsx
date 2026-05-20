@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { collection, query, orderBy, limit, doc } from "firebase/firestore"
 import { 
@@ -29,12 +28,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-const BUSINESS_TIMEZONE = 'America/New_York'
-
 export default function Dashboard() {
   const { user, isUserLoading } = useUser()
   const firestore = useFirestore()
   const router = useRouter()
+  const [localTimeZone, setLocalTimeZone] = useState<string>("")
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -46,6 +44,7 @@ export default function Dashboard() {
     if (!isUserLoading && !user) {
       router.replace("/auth")
     }
+    setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
   }, [user, isUserLoading, router])
 
   const staffQuery = useMemoFirebase(() => {
@@ -73,12 +72,16 @@ export default function Dashboard() {
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
   const formatTime = (isoString: string) => {
-    return new Date(isoString).toLocaleTimeString('en-US', {
-      timeZone: BUSINESS_TIMEZONE,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
+    if (!isoString) return "--:--"
+    try {
+      return new Date(isoString).toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+    } catch (e) {
+      return "--:--"
+    }
   }
 
   if (isUserLoading || isProfileLoading || !user) {
@@ -154,7 +157,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter">Admin Panel</h1>
-          <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Business Time ({BUSINESS_TIMEZONE})</p>
+          <p className="text-muted-foreground font-black uppercase text-[9px] tracking-[0.3em]">Zone: {localTimeZone || "Detecting..."}</p>
         </div>
         <div className="flex gap-2">
           {isAdmin && (
@@ -192,7 +195,7 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader className="border-b-2 border-black py-2 px-3 bg-muted/20">
             <CardTitle className="text-xl font-black uppercase">Recent Activity</CardTitle>
-            <CardDescription className="font-bold uppercase text-[9px] tracking-widest text-muted-foreground">Latest Events (Business Time)</CardDescription>
+            <CardDescription className="font-bold uppercase text-[9px] tracking-widest text-muted-foreground">Latest Events (Local Time)</CardDescription>
           </CardHeader>
           <CardContent className="p-2">
             <div className="space-y-2">
@@ -202,7 +205,7 @@ export default function Dashboard() {
                   <div className="flex-1 space-y-0.5">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-black uppercase">{entry.displayName || "Unknown Staff"}</p>
-                      <span className="text-[10px] font-black text-muted-foreground">{formatTime(entry.clockInTime)}</span>
+                      <span className="text-[10px] font-black text-muted-foreground">{localTimeZone ? formatTime(entry.clockInTime) : "..."}</span>
                     </div>
                     <Badge className="bg-black text-white text-[8px] px-1 py-0 h-4 font-black uppercase rounded-none">
                       {entry.clockOutTime ? "Shift Completed" : "Clocked In"}

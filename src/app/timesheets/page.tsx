@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, where } from "firebase/firestore"
 import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
@@ -41,13 +40,16 @@ import {
 import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 
-const BUSINESS_TIMEZONE = 'America/New_York'
-
 export default function TimesheetsPage() {
   const { user, isUserLoading: isAuthLoading } = useUser()
   const firestore = useFirestore()
   const [selectedEntry, setSelectedEntry] = useState<any>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [localTimeZone, setLocalTimeZone] = useState<string>("")
+
+  useEffect(() => {
+    setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+  }, [])
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -79,8 +81,7 @@ export default function TimesheetsPage() {
 
   const formatDateTime = (isoString: string) => {
     if (!isoString) return "--:--"
-    return new Date(isoString).toLocaleString('en-US', {
-      timeZone: BUSINESS_TIMEZONE,
+    return new Date(isoString).toLocaleString(undefined, {
       dateStyle: 'short',
       timeStyle: 'short'
     })
@@ -108,7 +109,7 @@ export default function TimesheetsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black uppercase tracking-tighter">Attendance History</h1>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Verified Session Logs (Business Time: {BUSINESS_TIMEZONE})</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Verified Session Logs (Zone: {localTimeZone || "Detecting..."})</p>
         </div>
         {isAdmin && (
           <Button variant="outline" className="border-2 border-black rounded-none font-black h-10 px-4">
@@ -143,7 +144,7 @@ export default function TimesheetsPage() {
                       onClick={() => handleRowClick(entry)}
                     >
                       <TableCell className="font-black text-xs uppercase">{entry.displayName || "Unknown"}</TableCell>
-                      <TableCell className="text-[10px] font-bold uppercase">{formatDateTime(entry.clockInTime)}</TableCell>
+                      <TableCell className="text-[10px] font-bold uppercase">{localTimeZone ? formatDateTime(entry.clockInTime) : "..."}</TableCell>
                       <TableCell className="hidden md:table-cell font-mono text-xs font-black">
                         {calculateHours(entry.clockInTime, entry.clockOutTime)}
                       </TableCell>
@@ -170,7 +171,7 @@ export default function TimesheetsPage() {
               <div className="flex justify-between text-xs"><span className="font-bold uppercase opacity-60">Total Logs</span><span className="font-black">{timeEntries?.length || 0}</span></div>
             </div>
             <p className="text-[9px] font-bold text-white/50 uppercase leading-relaxed">
-              Attendance records are verified via cryptographically signed QR codes during terminal scan. Times reflect business headquarters ({BUSINESS_TIMEZONE}).
+              Attendance records are verified via QR terminal scan. Times reflect the local zone: {localTimeZone || "Detecting..."}.
             </p>
           </CardContent>
         </Card>
@@ -189,8 +190,18 @@ export default function TimesheetsPage() {
                   <p className="font-black text-sm uppercase">{selectedEntry.displayName}</p>
                 </div>
                 <div className="p-4 border-2 border-black bg-muted/20 grid grid-cols-2 gap-4">
-                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-In</p><p className="font-black text-lg tabular-nums">{new Date(selectedEntry.clockInTime).toLocaleTimeString('en-US', { timeZone: BUSINESS_TIMEZONE, hour: '2-digit', minute: '2-digit' })}</p></div>
-                  <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Check-Out</p><p className="font-black text-lg tabular-nums">{selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString('en-US', { timeZone: BUSINESS_TIMEZONE, hour: '2-digit', minute: '2-digit' }) : "--:--"}</p></div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">Check-In</p>
+                    <p className="font-black text-lg tabular-nums">
+                      {localTimeZone ? new Date(selectedEntry.clockInTime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : "..."}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">Check-Out</p>
+                    <p className="font-black text-lg tabular-nums">
+                      {selectedEntry.clockOutTime ? new Date(selectedEntry.clockOutTime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t-2 border-black">
                   <div className="space-y-1"><p className="text-[10px] font-black uppercase text-muted-foreground">Total Duration</p><p className="text-xl font-black">{calculateHours(selectedEntry.clockInTime, selectedEntry.clockOutTime)}</p></div>

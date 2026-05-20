@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useParams, useRouter } from "next/navigation"
-import { collection, query, orderBy, doc, addDoc, serverTimestamp, where } from "firebase/firestore"
+import { collection, query, orderBy, doc, writeBatch, serverTimestamp, where } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -28,12 +28,31 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Hammer, Send, Loader2, MapPin, Search, Clock, ShieldAlert } from "lucide-react"
+import { 
+  Hammer, 
+  Send, 
+  Loader2, 
+  MapPin, 
+  Search, 
+  Clock, 
+  ShieldAlert, 
+  Plus, 
+  Trash2, 
+  ShoppingBag,
+  PackageCheck
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { notifyNewRequest } from "@/ai/flows/notify-request-flow"
+
+interface BasketItem {
+  id: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+}
 
 export default function RequestCategoryPage() {
   const { user, isUserLoading } = useUser()
@@ -43,12 +62,15 @@ export default function RequestCategoryPage() {
   const categoryStr = (params.category as string) || ""
   const category = categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)
   
-  const [quantity, setQuantity] = useState<number | "">(1)
+  const [basket, setBasket] = useState<BasketItem[]>([])
   const [address, setAddress] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inventorySearch, setInventorySearch] = useState("")
   const [openPicker, setOpenPicker] = useState(false)
-  const [selectedItemIdInternal, setSelectedItemIdInternal] = useState("")
+  
+  // Selection state for current item being added to basket
+  const [selectedItemId, setSelectedItemId] = useState("")
+  const [itemQuantity, setItemQuantity] = useState<number | "">(1)
 
   const userRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -68,7 +90,6 @@ export default function RequestCategoryPage() {
   }, [firestore, user])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
-  // Optimized query: Filtering by category in Firestore
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !category) return null
     return query(
@@ -105,53 +126,85 @@ export default function RequestCategoryPage() {
     )
   }
 
-  const filteredInventory = inventoryItems?.filter(item => 
-    item.name.toLowerCase().includes(inventorySearch.toLowerCase())
-  ) || []
+  const addToBasket = () => {
+    const qty = typeof itemQuantity === 'number' ? itemQuantity : 0
+    if (!selectedItemId || qty <= 0) return
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const qty = typeof quantity === 'number' ? quantity : 0
-    if (!firestore || !user || isSubmitting || !selectedItemIdInternal || !address || qty <= 0) return
+    const item = inventoryItems?.find(i => i.id === selectedItemId)
+    if (!item) return
+
+    const existingIndex = basket.findIndex(b => b.itemId === selectedItemId)
+    if (existingIndex > -1) {
+      const newBasket = [...basket]
+      newBasket[existingIndex].quantity += qty
+      setBasket(newBasket)
+    } else {
+      setBasket([...basket, {
+        id: Math.random().toString(36).substr(2, 9),
+        itemId: selectedItemId,
+        itemName: item.name,
+        quantity: qty
+      }])
+    }
+
+    setSelectedItemId("")
+    setItemQuantity(1)
+  }
+
+  const removeFromBasket = (id: string) => {
+    setBasket(basket.filter(item => item.id !== id))
+  }
+
+  const handleFinalSubmit = async () => {
+    if (!firestore || !user || isSubmitting || basket.length === 0 || !address) return
     setIsSubmitting(true)
 
-    const item = inventoryItems?.find(i => i.id === selectedItemIdInternal)
     const workerName = profile?.displayName || user.email || "Unknown Worker"
+    const batch = writeBatch(firestore)
+    const requestTime = new Date().toISOString()
 
     try {
-      await addDoc(collection(firestore, "materialRequests"), {
-        workerUid: user.uid,
-        workerName: workerName,
-        category,
-        itemId: selectedItemIdInternal,
-        itemName: item?.name || "Unknown Item",
-        quantity: Number(qty),
-        deliveryAddress: address,
-        requestTime: new Date().toISOString(),
-        status: "pending",
-        createdAt: serverTimestamp()
+      basket.forEach(item => {
+        const reqRef = doc(collection(firestore, "materialRequests"))
+        batch.set(reqRef, {
+          workerUid: user.uid,
+          workerName: workerName,
+          category,
+          itemId: item.itemId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          deliveryAddress: address,
+          requestTime: requestTime,
+          status: "pending",
+          createdAt: serverTimestamp()
+        })
       })
+
+      await batch.commit()
 
       if (telegramSettings?.chatId) {
         notifyNewRequest({
           workerName: workerName,
-          items: [{ name: item?.name || "Unknown Item", quantity: Number(qty) }],
+          items: basket.map(b => ({ name: b.itemName, quantity: b.quantity })),
           category: category,
           address: address,
           chatId: telegramSettings.chatId
         }).catch(console.error)
       }
 
-      toast({ title: "Request Sent", description: `Your ${category} material request has been logged.` })
-      setSelectedItemIdInternal("")
-      setQuantity(1)
+      toast({ title: "Order Authorized", description: `${basket.length} items logged for ${category} phase.` })
+      setBasket([])
       setAddress("")
     } catch (err) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to submit request." })
+      toast({ variant: "destructive", title: "System Error", description: "Failed to finalize material request." })
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const filteredInventory = inventoryItems?.filter(item => 
+    item.name.toLowerCase().includes(inventorySearch.toLowerCase())
+  ) || []
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -168,33 +221,35 @@ export default function RequestCategoryPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-5 space-y-8">
+        <div className="lg:col-span-5 space-y-6">
           <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
             <CardHeader className="bg-black text-white py-4">
-              <CardTitle className="text-xl font-black uppercase">Standard Request</CardTitle>
+              <CardTitle className="text-xl font-black uppercase flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5" /> Build Request
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-8 space-y-6">
               <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase opacity-60">Delivery Destination (REQUIRED)</Label>
+                <Label className="text-[10px] font-black uppercase opacity-60">Site Address (FOR ALL ITEMS)</Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     value={address} 
                     onChange={(e) => setAddress(e.target.value)} 
-                    placeholder="Enter site address for all items..." 
+                    placeholder="e.g. 123 Main St, Suite 101" 
                     className="h-12 border-2 border-black rounded-none font-bold pl-10" 
                   />
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t-2 border-black/5">
+              <div className="space-y-4 pt-4 border-t-4 border-black border-dashed">
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase opacity-60">Single Item Picker</Label>
+                  <Label className="text-[10px] font-black uppercase opacity-60">Select Material</Label>
                   <Popover open={openPicker} onOpenChange={setOpenPicker}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-between h-10 border-2 border-black rounded-none font-bold px-3">
                         <span className="truncate">
-                          {selectedItemIdInternal ? inventoryItems?.find(i => i.id === selectedItemIdInternal)?.name : "Search for a specific part..."}
+                          {selectedItemId ? inventoryItems?.find(i => i.id === selectedItemId)?.name : "Search parts..."}
                         </span>
                         <Search className="h-4 w-4 opacity-50" />
                       </Button>
@@ -216,10 +271,10 @@ export default function RequestCategoryPage() {
                               variant="ghost"
                               className={cn(
                                 "w-full justify-start text-xs font-bold rounded-none h-8 hover:bg-black hover:text-white transition-colors",
-                                selectedItemIdInternal === item.id && "bg-muted"
+                                selectedItemId === item.id && "bg-muted"
                               )}
                               onClick={() => {
-                                setSelectedItemIdInternal(item.id)
+                                setSelectedItemId(item.id)
                                 setOpenPicker(false)
                               }}
                             >
@@ -238,19 +293,51 @@ export default function RequestCategoryPage() {
                     <Input 
                       type="number" 
                       min="1" 
-                      value={quantity} 
-                      onChange={(e) => setQuantity(e.target.value === "" ? "" : Number(e.target.value))} 
-                      placeholder="1"
+                      value={itemQuantity} 
+                      onChange={(e) => setItemQuantity(e.target.value === "" ? "" : Number(e.target.value))} 
                       className="h-10 border-2 border-black rounded-none font-black" 
                     />
                   </div>
                   <div className="space-y-1 flex items-end">
-                    <Button type="submit" disabled={isSubmitting || !selectedItemIdInternal || !address} className="w-full h-10 bg-black text-white font-black text-xs uppercase rounded-none">
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-1 h-3 w-3" />} ADD ITEM
+                    <Button 
+                      type="button" 
+                      onClick={addToBasket} 
+                      disabled={!selectedItemId || !itemQuantity}
+                      className="w-full h-10 border-2 border-black rounded-none font-black text-xs uppercase hover:bg-black hover:text-white transition-all"
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> ADD TO LIST
                     </Button>
                   </div>
                 </div>
-              </form>
+              </div>
+
+              {basket.length > 0 && (
+                <div className="space-y-4 pt-6">
+                  <Label className="text-[10px] font-black uppercase flex items-center gap-2">
+                    <PackageCheck className="h-4 w-4" /> Pending List Breakdown
+                  </Label>
+                  <div className="space-y-2">
+                    {basket.map(item => (
+                      <div key={item.id} className="flex items-center justify-between border-2 border-black p-2 bg-muted/5">
+                        <div className="flex-1">
+                          <p className="text-[11px] font-black uppercase truncate">{item.itemName}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground">Qty: {item.quantity}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => removeFromBasket(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button 
+                    onClick={handleFinalSubmit} 
+                    disabled={isSubmitting || !address} 
+                    className="w-full h-14 bg-black text-white font-black text-lg uppercase rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin" /> : "FINALIZE REQUEST"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

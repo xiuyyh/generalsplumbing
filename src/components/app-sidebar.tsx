@@ -14,8 +14,7 @@ import {
   ChevronDown,
   Hammer,
   UserCog,
-  Clock,
-  Boxes
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -151,11 +150,6 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/staff"} className="h-10 rounded-none font-black uppercase text-[11px]">
                     <Link href="/staff"><Users /><span>Staff Registry</span></Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === "/admin/bundles"} className="h-10 rounded-none font-black uppercase text-[11px]">
-                    <Link href="/admin/bundles"><Boxes /><span>Bundle Terminal</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

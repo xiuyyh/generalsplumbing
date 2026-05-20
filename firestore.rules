@@ -49,11 +49,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /bundles/{bundleId} {
-      allow read: if isApproved();
-      allow write: if isAdmin();
-    }
-
     match /inventoryItems/{itemId} {
       allow read: if isApproved();
       allow write: if isAdmin() || hasRole('INVENTORY');

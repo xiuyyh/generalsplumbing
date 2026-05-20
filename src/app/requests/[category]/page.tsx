@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useParams, useRouter } from "next/navigation"
-import { collection, query, orderBy, doc, addDoc, serverTimestamp, writeBatch, where } from "firebase/firestore"
+import { collection, query, orderBy, doc, addDoc, serverTimestamp, where } from "firebase/firestore"
 import { 
   Card, 
   CardContent, 
@@ -27,7 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Hammer, Send, Loader2, MapPin, Search, Check, Clock, Package, Boxes, ShieldAlert, ArrowRight, Zap } from "lucide-react"
+import { Hammer, Send, Loader2, MapPin, Search, Clock, ShieldAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -67,12 +68,6 @@ export default function RequestCategoryPage() {
   }, [firestore, user])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
-  const bundlesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
-    return query(collection(firestore, "bundles"), orderBy("name", "asc"))
-  }, [firestore, user])
-  const { data: allBundles } = useCollection(bundlesQuery)
-
   // Optimized query: Filtering by category in Firestore
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !category) return null
@@ -110,7 +105,6 @@ export default function RequestCategoryPage() {
     )
   }
 
-  const categoryBundles = allBundles?.filter(b => b.category.toLowerCase() === category.toLowerCase()) || []
   const filteredInventory = inventoryItems?.filter(item => 
     item.name.toLowerCase().includes(inventorySearch.toLowerCase())
   ) || []
@@ -159,54 +153,6 @@ export default function RequestCategoryPage() {
     }
   }
 
-  const handleBundleRequest = async (bundle: any) => {
-    if (!firestore || !user || isSubmitting || !address) {
-      if (!address) toast({ variant: "destructive", title: "Missing Destination", description: "Please enter a delivery address first." })
-      return
-    }
-    
-    setIsSubmitting(true)
-    const workerName = profile?.displayName || user.email || "Unknown Worker"
-    const batch = writeBatch(firestore)
-
-    try {
-      bundle.items.forEach((item: any) => {
-        const reqRef = doc(collection(firestore, "materialRequests"))
-        batch.set(reqRef, {
-          workerUid: user.uid,
-          workerName: workerName,
-          category,
-          itemId: item.itemId,
-          itemName: item.itemName,
-          quantity: item.quantity,
-          deliveryAddress: address,
-          requestTime: new Date().toISOString(),
-          status: "pending",
-          bundleId: bundle.id,
-          createdAt: serverTimestamp()
-        })
-      })
-
-      await batch.commit()
-
-      if (telegramSettings?.chatId) {
-        notifyNewRequest({
-          workerName: workerName,
-          items: bundle.items.map((i: any) => ({ name: i.itemName, quantity: i.quantity })),
-          category: category,
-          address: address,
-          chatId: telegramSettings.chatId
-        }).catch(console.error)
-      }
-
-      toast({ title: "Bundle Requested", description: `All items from ${bundle.name} have been logged.` })
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error", description: "Bundle request failed." })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div className="flex justify-between items-end">
@@ -239,7 +185,6 @@ export default function RequestCategoryPage() {
                     className="h-12 border-2 border-black rounded-none font-bold pl-10" 
                   />
                 </div>
-                <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Address must be set before requesting bundles or standard items.</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t-2 border-black/5">
@@ -308,53 +253,6 @@ export default function RequestCategoryPage() {
               </form>
             </CardContent>
           </Card>
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Boxes className="h-5 w-5" />
-              <h2 className="text-2xl font-black uppercase">Phase Bundles</h2>
-            </div>
-            {categoryBundles.length === 0 ? (
-              <div className="text-center py-10 border-2 border-black border-dashed bg-muted/10">
-                <p className="text-[10px] font-black uppercase text-muted-foreground">No pre-filled bundles for this phase.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {categoryBundles.map(bundle => (
-                  <Card key={bundle.id} className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all bg-white">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-black uppercase text-sm leading-tight">{bundle.name}</h3>
-                          <p className="text-[9px] font-bold text-muted-foreground uppercase">{bundle.items.length} items included</p>
-                        </div>
-                        <Button 
-                          onClick={() => handleBundleRequest(bundle)}
-                          disabled={isSubmitting || !address}
-                          size="sm"
-                          className="bg-black text-white rounded-none h-8 font-black uppercase text-[10px]"
-                        >
-                          <Zap className="mr-1 h-3 w-3 fill-current" /> REQUEST BUNDLE
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {bundle.items.slice(0, 3).map((i: any) => (
-                          <Badge key={i.itemId} variant="outline" className="text-[8px] font-black border-black/10 rounded-none bg-muted/10">
-                            {i.itemName} x{i.quantity}
-                          </Badge>
-                        ))}
-                        {bundle.items.length > 3 && (
-                          <Badge variant="outline" className="text-[8px] font-black border-black/10 rounded-none bg-muted/10">
-                            +{bundle.items.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="lg:col-span-7 space-y-4">
@@ -380,9 +278,6 @@ export default function RequestCategoryPage() {
                           <div className="text-[9px] font-bold text-muted-foreground uppercase">
                             <MapPin className="h-2 w-2 inline mr-1" />{req.deliveryAddress}
                           </div>
-                          {req.bundleId && (
-                            <Badge className="bg-blue-100 text-blue-700 text-[8px] h-4 mt-1 border-none rounded-none font-black uppercase">Bundle Request</Badge>
-                          )}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <Badge className={cn(

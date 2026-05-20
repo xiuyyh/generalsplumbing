@@ -537,9 +537,10 @@ export default function DispatchPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ROUGH" className="font-bold">ROUGH</SelectItem>
-                    <SelectItem value="FINAL" className="font-bold">FINAL</SelectItem>
                     <SelectItem value="UNDERSLAB" className="font-bold">UNDERSLAB</SelectItem>
-                    <SelectItem value="EXTRA (side job)" className="font-bold">EXTRA (side job)</SelectItem>
+                    <SelectItem value="FINAL" className="font-bold">FINAL</SelectItem>
+                    <SelectItem value="EXTRA" className="font-bold">EXTRA</SelectItem>
+                    <SelectItem value="WARRANTY" className="font-bold">WARRANTY</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

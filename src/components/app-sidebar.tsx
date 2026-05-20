@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -120,7 +119,7 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="pl-4 border-l-2 border-black ml-4 mt-1 space-y-1">
-                      {["Rough", "Underslab", "Final"].map((cat) => (
+                      {["Rough", "Underslab", "Final", "Extra", "Warranty"].map((cat) => (
                         <SidebarMenuButton key={cat} asChild isActive={pathname === `/requests/${cat.toLowerCase()}`} className="h-8 rounded-none font-black uppercase text-[10px]">
                           <Link href={`/requests/${cat.toLowerCase()}`}>{cat}</Link>
                         </SidebarMenuButton>

@@ -23,7 +23,8 @@ import {
   Loader2,
   ListChecks,
   ShieldAlert,
-  Clock8
+  Clock8,
+  Hammer
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -126,18 +127,29 @@ export default function Dashboard() {
 
   if (role === "WORKER" && !isAdmin) {
     return (
-      <div className="max-w-md mx-auto mt-20 text-center space-y-6">
-        <h1 className="text-3xl font-black uppercase tracking-tighter">Welcome, {profile?.displayName}</h1>
-        <p className="font-bold">Your account is authorized for material requests.</p>
-        <div className="grid grid-cols-1 gap-4">
-          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
-            <Link href="/requests/rough">Go to Rough Requests</Link>
+      <div className="max-w-2xl mx-auto mt-12 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Welcome, {profile?.displayName}</h1>
+          <p className="font-bold text-muted-foreground uppercase text-xs tracking-widest flex items-center justify-center gap-2">
+            <Hammer className="h-4 w-4" /> Material Procurement Terminal
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button asChild className="bg-black text-white font-black rounded-none h-20 text-lg uppercase border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+            <Link href="/requests/rough">Rough Requests</Link>
           </Button>
-          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
-            <Link href="/requests/underslab">Go to Underslab Requests</Link>
+          <Button asChild className="bg-black text-white font-black rounded-none h-20 text-lg uppercase border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+            <Link href="/requests/underslab">Underslab Requests</Link>
           </Button>
-          <Button asChild className="bg-black text-white font-black rounded-none h-16 text-lg uppercase">
-            <Link href="/requests/final">Go to Final Requests</Link>
+          <Button asChild className="bg-black text-white font-black rounded-none h-20 text-lg uppercase border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+            <Link href="/requests/final">Final Requests</Link>
+          </Button>
+          <Button asChild className="bg-black text-white font-black rounded-none h-20 text-lg uppercase border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all">
+            <Link href="/requests/extra">Extra Requests</Link>
+          </Button>
+          <Button asChild className="bg-black text-white font-black rounded-none h-20 text-lg uppercase border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all md:col-span-2">
+            <Link href="/requests/warranty">Warranty Requests</Link>
           </Button>
         </div>
       </div>

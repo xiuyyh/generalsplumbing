@@ -34,7 +34,7 @@
         "id": { "type": "string" },
         "workerUid": { "type": "string" },
         "workerName": { "type": "string" },
-        "category": { "type": "string", "enum": ["Rough", "Underslab", "Final"] },
+        "category": { "type": "string", "enum": ["Rough", "Underslab", "Final", "Extra", "Warranty"] },
         "itemId": { "type": "string" },
         "itemName": { "type": "string" },
         "quantity": { "type": "number" },

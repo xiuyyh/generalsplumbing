@@ -44,6 +44,22 @@
         "rejectionNote": { "type": "string" }
       }
     },
+    "InventoryDispatch": {
+      "title": "InventoryDispatch",
+      "type": "object",
+      "description": "A record of material leaving inventory for a job site.",
+      "properties": {
+        "id": { "type": "string" },
+        "inventoryItemId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "dispatchDateTime": { "type": "string", "format": "date-time" },
+        "dispatchedByStaffMemberId": { "type": "string" },
+        "assignedToStaffMemberId": { "type": "string" },
+        "purpose": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "TimeEntry": {
       "title": "TimeEntry",
       "type": "object",
@@ -96,6 +112,10 @@
     "/materialRequests/{requestId}": {
       "schema": "#/backend/entities/MaterialRequest",
       "description": "Worker material requests."
+    },
+    "/inventoryDispatches/{dispatchId}": {
+      "schema": "#/backend/entities/InventoryDispatch",
+      "description": "Authorized material outflow logs."
     },
     "/timeEntries/{entryId}": {
       "schema": "#/backend/entities/TimeEntry",

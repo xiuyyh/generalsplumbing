@@ -25,7 +25,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { Html5QrcodeScanner } from "html5-qrcode"
+import { Html5Qrcode } from "html5-qrcode"
 import Link from "next/link"
 
 export default function StaffAttendancePage() {
@@ -34,7 +34,7 @@ export default function StaffAttendancePage() {
   const router = useRouter()
   const [isScanning, setIsScanning] = useState(false)
   const [activeShift, setActiveShift] = useState<any>(null)
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null
@@ -71,17 +71,48 @@ export default function StaffAttendancePage() {
     fetchActiveShift()
   }, [firestore, user])
 
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(console.error)
+      }
+    }
+  }, [])
+
   const startScanner = () => {
     setIsScanning(true)
     setTimeout(() => {
-      scannerRef.current = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false)
-      scannerRef.current.render(onScanSuccess, onScanError)
+      const html5QrCode = new Html5Qrcode("reader")
+      scannerRef.current = html5QrCode
+      
+      const config = { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 } 
+      }
+
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        onScanSuccess, 
+        onScanError
+      ).catch(err => {
+        console.error("Scanner start error:", err)
+        toast({ 
+          variant: "destructive", 
+          title: "Camera Error", 
+          description: "Could not access the rear camera. Please check browser permissions." 
+        })
+        setIsScanning(false)
+      })
     }, 100)
   }
 
-  const stopScanner = () => {
+  const stopScanner = async () => {
     if (scannerRef.current) {
-      scannerRef.current.clear().catch(console.error)
+      if (scannerRef.current.isScanning) {
+        await scannerRef.current.stop().catch(console.error)
+      }
       scannerRef.current = null
     }
     setIsScanning(false)
@@ -100,7 +131,7 @@ export default function StaffAttendancePage() {
       return
     }
 
-    stopScanner()
+    await stopScanner()
 
     if (activeShift) {
       // Clock Out
@@ -119,7 +150,6 @@ export default function StaffAttendancePage() {
         notes: "Verified via QR Terminal"
       })
       toast({ title: "Clock In Successful", description: "Shift started. Work safe!" })
-      // Re-fetch shift would happen via effect or reload, but for MVP we toast
       setTimeout(() => window.location.reload(), 1500)
     }
   }
@@ -169,7 +199,7 @@ export default function StaffAttendancePage() {
             </Button>
           ) : (
             <div className="space-y-4">
-              <div id="reader" className="w-full border-4 border-black overflow-hidden bg-black"></div>
+              <div id="reader" className="w-full border-4 border-black overflow-hidden bg-black min-h-[300px]"></div>
               <Button onClick={stopScanner} variant="destructive" className="w-full h-12 rounded-none font-black uppercase">
                 <X className="mr-2 h-4 w-4" /> CANCEL SCAN
               </Button>

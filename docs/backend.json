@@ -22,7 +22,8 @@
         "id": { "type": "string" },
         "value": { "type": "string", "description": "Unique random token value." },
         "expiresAt": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "adminNote": { "type": "string", "description": "A message or notice from the admin to staff." }
       }
     },
     "MaterialRequest": {

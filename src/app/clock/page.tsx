@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, orderBy, limit } from "firebase/firestore"
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useRouter } from "next/navigation"
 import { 
   Card, 
@@ -21,7 +22,8 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { QrCode, Loader2, ShieldAlert, RefreshCw, Clock, History, Timer } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { QrCode, Loader2, ShieldAlert, RefreshCw, Clock, History, Timer, Printer, Trash2, MessageCircle } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -33,6 +35,7 @@ export default function AdminQRCodeGenerator() {
   
   const [expiryValue, setExpiryValue] = useState<number | "">(8)
   const [expiryUnit, setExpiryUnit] = useState<string>("hours")
+  const [adminNote, setAdminNote] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [localTimeZone, setLocalTimeZone] = useState<string>("")
 
@@ -42,13 +45,12 @@ export default function AdminQRCodeGenerator() {
   }, [firestore, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
-  const tokenQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
-    return query(collection(firestore, "attendanceTokens"), orderBy("createdAt", "desc"), limit(1))
-  }, [firestore, user])
-  const { data: latestTokens, isLoading: isTokenLoading } = useCollection(tokenQuery)
+  const tokenRef = useMemoFirebase(() => {
+    if (!firestore) return null
+    return doc(firestore, "attendanceTokens", "current")
+  }, [firestore])
+  const { data: activeToken, isLoading: isTokenLoading } = useDoc(tokenRef)
 
-  const activeToken = latestTokens?.[0]
   const isExpired = activeToken ? new Date(activeToken.expiresAt) < new Date() : true
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export default function AdminQRCodeGenerator() {
     setDocumentNonBlocking(doc(firestore, "attendanceTokens", "current"), {
       value: tokenId,
       expiresAt,
+      adminNote: adminNote || "",
       createdAt: new Date().toISOString()
     }, { merge: true })
 
@@ -101,6 +104,20 @@ export default function AdminQRCodeGenerator() {
     setIsGenerating(false)
   }
 
+  const handleTerminateCode = () => {
+    if (!firestore || !activeToken) return
+    if (window.confirm("IMMEDIATE REVOCATION: Revoke current QR access for all staff?")) {
+      updateDocumentNonBlocking(doc(firestore, "attendanceTokens", "current"), {
+        expiresAt: new Date(Date.now() - 1000).toISOString()
+      })
+      toast({ variant: "destructive", title: "Access Revoked", description: "QR code has been invalidated." })
+    }
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
   const formatDateTime = (isoString: string) => {
     return new Date(isoString).toLocaleString(undefined, {
       dateStyle: 'medium',
@@ -109,8 +126,8 @@ export default function AdminQRCodeGenerator() {
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-8">
-      <div className="text-center">
+    <div className="max-w-xl mx-auto space-y-8 pb-20">
+      <div className="text-center no-print">
         <h1 className="text-4xl font-black uppercase tracking-tighter flex items-center justify-center gap-3">
           <QrCode className="h-10 w-10" /> Auth Terminal
         </h1>
@@ -118,66 +135,103 @@ export default function AdminQRCodeGenerator() {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden">
-          <CardHeader className="bg-black text-white p-4 text-center">
-            <CardTitle className="text-lg font-black uppercase">Live Access Code</CardTitle>
+        {/* Printable QR Card */}
+        <Card className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white overflow-hidden print:shadow-none print:border-none">
+          <CardHeader className="bg-black text-white p-4 text-center print:bg-white print:text-black print:border-b-4 print:border-black">
+            <CardTitle className="text-lg font-black uppercase">Staff Attendance QR</CardTitle>
+            <p className="text-[10px] uppercase font-black opacity-60 print:opacity-100">Scan via Management App</p>
           </CardHeader>
           <CardContent className="p-8 flex flex-col items-center justify-center space-y-8">
-            <div className={`p-4 border-4 border-black ${isExpired ? "opacity-20 grayscale" : ""}`}>
-              {activeToken ? (
-                <QRCodeSVG value={activeToken.value} size={256} level="H" />
+            <div className={`p-4 border-4 border-black bg-white ${isExpired ? "opacity-20 grayscale" : ""}`}>
+              {activeToken && !isExpired ? (
+                <QRCodeSVG value={activeToken.value} size={300} level="H" />
               ) : (
-                <div className="h-[256px] w-[256px] flex items-center justify-center bg-muted">
+                <div className="h-[300px] w-[300px] flex items-center justify-center bg-muted">
                   <Clock className="h-12 w-12 text-muted-foreground" />
                 </div>
               )}
             </div>
 
             {activeToken && !isExpired ? (
-              <div className="text-center space-y-2">
-                <p className="text-2xl font-black uppercase">Active Token</p>
-                <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  <Timer className="h-4 w-4" />
-                  <span>Expires: {localTimeZone ? formatDateTime(activeToken.expiresAt) : "..."}</span>
+              <div className="text-center space-y-4 w-full">
+                <div className="space-y-1">
+                  <p className="text-2xl font-black uppercase">Active Code</p>
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest print:text-black">
+                    <Timer className="h-4 w-4" />
+                    <span>Expires: {localTimeZone ? formatDateTime(activeToken.expiresAt) : "..."}</span>
+                  </div>
                 </div>
+
+                {activeToken.adminNote && (
+                  <div className="bg-muted/30 p-4 border-2 border-black border-dashed print:bg-white">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1 flex items-center justify-center gap-2">
+                      <MessageCircle className="h-3 w-3" /> Admin Message
+                    </p>
+                    <p className="font-bold text-sm uppercase italic">"{activeToken.adminNote}"</p>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-center space-y-2">
+              <div className="text-center space-y-2 no-print">
                 <p className="text-xl font-black uppercase text-destructive">Token Expired / Missing</p>
-                <p className="text-[10px] font-bold uppercase text-muted-foreground">Generate a new code for staff access</p>
+                <p className="text-[10px] font-bold uppercase text-muted-foreground">Generate a new code to restore access</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-muted/10">
+        {activeToken && !isExpired && (
+          <div className="flex gap-4 no-print">
+            <Button onClick={handlePrint} className="flex-1 h-12 border-2 border-black bg-white text-black rounded-none font-black uppercase hover:bg-muted">
+              <Printer className="mr-2 h-4 w-4" /> Print / Export PDF
+            </Button>
+            <Button onClick={handleTerminateCode} variant="destructive" className="flex-1 h-12 border-2 border-black rounded-none font-black uppercase">
+              <Trash2 className="mr-2 h-4 w-4" /> Terminate Now
+            </Button>
+          </div>
+        )}
+
+        <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-muted/10 no-print">
           <CardHeader className="pb-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest">Lifespan Configuration</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest">Configuration Terminal</Label>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input 
-                  type="number" 
-                  min="1"
-                  value={expiryValue}
-                  onChange={(e) => setExpiryValue(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="h-12 border-2 border-black rounded-none font-black text-lg text-center"
-                  placeholder="0"
-                />
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase">Lifespan Duration</Label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input 
+                    type="number" 
+                    min="1"
+                    value={expiryValue}
+                    onChange={(e) => setExpiryValue(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="h-12 border-2 border-black rounded-none font-black text-lg text-center"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="w-[140px]">
+                  <Select value={expiryUnit} onValueChange={setExpiryUnit}>
+                    <SelectTrigger className="h-12 border-2 border-black rounded-none font-black text-sm uppercase">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minutes" className="font-black uppercase text-[10px]">Minutes</SelectItem>
+                      <SelectItem value="hours" className="font-black uppercase text-[10px]">Hours</SelectItem>
+                      <SelectItem value="days" className="font-black uppercase text-[10px]">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="w-[140px]">
-                <Select value={expiryUnit} onValueChange={setExpiryUnit}>
-                  <SelectTrigger className="h-12 border-2 border-black rounded-none font-black text-sm uppercase">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minutes" className="font-black uppercase text-[10px]">Minutes</SelectItem>
-                    <SelectItem value="hours" className="font-black uppercase text-[10px]">Hours</SelectItem>
-                    <SelectItem value="days" className="font-black uppercase text-[10px]">Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase">Admin Note / Announcement</Label>
+              <Textarea 
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                placeholder="e.g. Safety briefing at 7:00 AM sharp!"
+                className="border-2 border-black rounded-none min-h-[80px] font-bold"
+              />
             </div>
             
             <Button 
@@ -191,11 +245,20 @@ export default function AdminQRCodeGenerator() {
         </Card>
       </div>
 
-      <div className="flex justify-center gap-4">
-        <Button variant="outline" asChild className="border-2 border-black rounded-none font-black uppercase text-xs">
-          <Link href="/timesheets"><History className="mr-2 h-4 w-4" /> Audit Logs</Link>
-        </Button>
-      </div>
+      <style jsx global>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          .container {
+            padding: 0 !important;
+            max-width: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

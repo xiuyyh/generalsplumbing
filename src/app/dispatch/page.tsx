@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from "react"
@@ -35,13 +34,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   ClipboardList, 
@@ -61,10 +53,15 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
-  FileText
+  FileText,
+  PackageCheck,
+  PackageX,
+  ThumbsUp,
+  ThumbsDown,
+  Info
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
+import { notifyDispatch, notifyBatchDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -84,8 +81,11 @@ export default function DispatchPage() {
 
   // Expanded batches state
   const [expandedBatches, setExpandedBatches] = useState<string[]>([])
+  
+  // Batch fulfillment state: Record<batchId, Record<requestId, { status: 'good' | 'bad', note: string }>>
+  const [batchFulfillment, setBatchFulfillment] = useState<Record<string, Record<string, { isAvailable: boolean, note: string }>>>({})
 
-  // Decline Dialog state
+  // Decline Dialog state for individual items
   const [isDeclineDialogOpen, setIsDeclineDialogOpen] = useState(false)
   const [rejectionRequestId, setRejectionRequestId] = useState<string | null>(null)
   const [rejectionNote, setRejectionNote] = useState("")
@@ -142,6 +142,7 @@ export default function DispatchPage() {
       if (!groups[key]) {
         groups[key] = {
           id: key,
+          workerUid: req.workerUid,
           workerName: req.workerName,
           address: req.deliveryAddress,
           category: req.category,
@@ -183,18 +184,107 @@ export default function DispatchPage() {
     )
   }
 
-  const addItemRow = () => {
-    setItems([...items, { id: Date.now(), inventoryItemId: "", quantity: 1 }])
+  const updateItemFulfillment = (batchId: string, reqId: string, isAvailable: boolean, note: string = "") => {
+    setBatchFulfillment(prev => ({
+      ...prev,
+      [batchId]: {
+        ...(prev[batchId] || {}),
+        [reqId]: { isAvailable, note }
+      }
+    }));
   }
 
-  const removeItemRow = (id: number) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id))
+  const handleProcessBatch = async (batch: any) => {
+    if (!firestore || !user || isSubmitting) return;
+    setIsSubmitting(true);
+
+    const selections = batchFulfillment[batch.id] || {};
+    const unselectedItems = batch.items.filter((item: any) => selections[item.id] === undefined);
+
+    if (unselectedItems.length > 0) {
+      toast({ variant: "destructive", title: "Incomplete Selection", description: "Please mark every item as Good or Bad before complete processing." });
+      setIsSubmitting(false);
+      return;
     }
-  }
 
-  const handleItemChange = (id: number, field: string, value: any) => {
-    setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
+    try {
+      const fbBatch = writeBatch(firestore);
+      const notificationItems: any[] = [];
+
+      for (const req of batch.items) {
+        const selection = selections[req.id];
+        const reqRef = doc(firestore, "materialRequests", req.id);
+
+        if (selection.isAvailable) {
+          // Authorize/Dispatch
+          const dispatchRef = doc(collection(firestore, "inventoryDispatches"));
+          const itemRef = doc(firestore, "inventoryItems", req.itemId);
+          const inventoryItem = inventoryItems?.find(i => i.id === req.itemId);
+
+          fbBatch.set(dispatchRef, {
+            inventoryItemId: req.itemId,
+            quantity: Number(req.quantity),
+            dispatchDateTime: new Date().toISOString(),
+            dispatchedByStaffMemberId: user.uid,
+            assignedToStaffMemberId: req.workerUid, 
+            purpose: req.category,
+            deliveryAddress: req.deliveryAddress,
+            createdAt: serverTimestamp()
+          });
+
+          if (inventoryItem) {
+            fbBatch.update(itemRef, {
+              currentStock: (inventoryItem.currentStock || 0) - Number(req.quantity)
+            });
+          }
+
+          fbBatch.update(reqRef, {
+            status: "dispatched",
+            dispatchedAt: new Date().toISOString()
+          });
+
+          notificationItems.push({
+            name: req.itemName,
+            quantity: req.quantity,
+            isAvailable: true
+          });
+        } else {
+          // Reject/Decline
+          fbBatch.update(reqRef, {
+            status: "rejected",
+            rejectionNote: selection.note,
+            rejectedAt: new Date().toISOString()
+          });
+
+          notificationItems.push({
+            name: req.itemName,
+            quantity: req.quantity,
+            isAvailable: false,
+            note: selection.note
+          });
+        }
+      }
+
+      await fbBatch.commit();
+      toast({ title: "Batch Processed", description: "All requests finalized and synchronized." });
+
+      if (telegramSettings?.chatId) {
+        notifyBatchDispatch({
+          workerName: batch.workerName,
+          category: batch.category,
+          address: batch.address,
+          items: notificationItems,
+          chatId: telegramSettings.chatId
+        }).catch(console.error);
+      }
+
+      setExpandedBatches(prev => prev.filter(id => id !== batch.id));
+    } catch (error) {
+      console.error("Batch processing error:", error);
+      toast({ variant: "destructive", title: "Processing Error", description: "Batch commit failed." });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleAuthorizeRequest = async (req: any) => {
@@ -250,12 +340,6 @@ export default function DispatchPage() {
     }
   }
 
-  const openDeclineDialog = (reqId: string) => {
-    setRejectionRequestId(reqId)
-    setRejectionNote("")
-    setIsDeclineDialogOpen(true)
-  }
-
   const handleDeclineRequest = () => {
     if (!firestore || !rejectionRequestId || isSubmitting) return
     
@@ -270,21 +354,18 @@ export default function DispatchPage() {
     setRejectionRequestId(null)
   }
 
-  const handleDeleteRequest = (reqId: string) => {
-    if (!firestore) return
-    if (window.confirm("PERMANENT REMOVAL: Delete this pending request? This cannot be undone.")) {
-      deleteDocumentNonBlocking(doc(firestore, "materialRequests", reqId))
-      toast({ variant: "destructive", title: "Request Deleted", description: "Record removed from system." })
+  const addItemRow = () => {
+    setItems([...items, { id: Date.now(), inventoryItemId: "", quantity: 1 }])
+  }
+
+  const removeItemRow = (id: number) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id))
     }
   }
 
-  const handleDeleteDispatch = (dispatch: any) => {
-    if (!firestore) return
-    const confirmed = window.confirm(`TERMINATE LOG: Remove this dispatch record from history? This action is permanent and does not reverse inventory depletion.`)
-    if (confirmed) {
-      deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", dispatch.id))
-      toast({ variant: "destructive", title: "Record Deleted", description: "Dispatch log removed from history." })
-    }
+  const handleItemChange = (id: number, field: string, value: any) => {
+    setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -308,7 +389,7 @@ export default function DispatchPage() {
     }
 
     try {
-      const batch = writeBatch(firestore)
+      const fbBatch = writeBatch(firestore)
       const dispatchDataForNotification: any[] = []
 
       for (const item of selectedItems) {
@@ -316,7 +397,7 @@ export default function DispatchPage() {
         const itemRef = doc(firestore, "inventoryItems", item.inventoryItemId)
         const inventoryItem = inventoryItems?.find(i => i.id === item.inventoryItemId)
 
-        batch.set(dispatchRef, {
+        fbBatch.set(dispatchRef, {
           inventoryItemId: item.inventoryItemId,
           quantity: Number(item.quantity),
           dispatchDateTime: new Date().toISOString(),
@@ -328,7 +409,7 @@ export default function DispatchPage() {
         })
 
         if (inventoryItem) {
-          batch.update(itemRef, {
+          fbBatch.update(itemRef, {
             currentStock: (inventoryItem.currentStock || 0) - Number(item.quantity)
           })
           dispatchDataForNotification.push({
@@ -339,7 +420,7 @@ export default function DispatchPage() {
         }
       }
       
-      await batch.commit()
+      await fbBatch.commit()
       toast({ title: "Dispatch Recorded", description: "Inventory updated." })
       
       if (telegramSettings?.chatId) {
@@ -420,8 +501,8 @@ export default function DispatchPage() {
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button onClick={() => handleAuthorizeRequest(req)} disabled={isSubmitting} className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3">Authorize</Button>
-                              <Button onClick={() => openDeclineDialog(req.id)} disabled={isSubmitting} variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white">Decline</Button>
-                              <Button onClick={() => handleDeleteRequest(req.id)} variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                              <Button onClick={() => { setRejectionRequestId(req.id); setRejectionNote(""); setIsDeclineDialogOpen(true); }} disabled={isSubmitting} variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white">Decline</Button>
+                              <Button onClick={() => { if(window.confirm("Delete record?")) deleteDocumentNonBlocking(doc(firestore, "materialRequests", req.id))}} variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -431,7 +512,10 @@ export default function DispatchPage() {
                     return (
                       <React.Fragment key={batch.id}>
                         <TableRow 
-                          className="border-b-2 border-black/10 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                          className={cn(
+                            "border-b-2 border-black/10 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors",
+                            isExpanded && "bg-muted/50"
+                          )}
                           onClick={() => toggleBatch(batch.id)}
                         >
                           <TableCell className="text-center">
@@ -449,29 +533,74 @@ export default function DispatchPage() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell font-bold uppercase text-[10px]">{batch.category}</TableCell>
                           <TableCell className="text-right">
-                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Expand to manage individual items</p>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Expand for Bulk Action</p>
                           </TableCell>
                         </TableRow>
-                        {isExpanded && batch.items.map((req: any) => (
-                          <TableRow key={req.id} className="border-b border-black/5 bg-white">
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                            <TableCell className="font-black uppercase text-xs">
-                              <div className="flex items-center gap-2">
-                                <Layers className="h-3 w-3 text-muted-foreground" />
-                                {req.itemName} x{req.quantity}
-                              </div>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell"></TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button onClick={() => handleAuthorizeRequest(req)} disabled={isSubmitting} className="h-8 bg-black text-white rounded-none text-[9px] font-black uppercase px-3">Authorize</Button>
-                                <Button onClick={() => openDeclineDialog(req.id)} disabled={isSubmitting} variant="outline" className="h-8 border-2 border-black rounded-none text-[9px] font-black uppercase px-3 hover:bg-black hover:text-white">Decline</Button>
-                                <Button onClick={() => handleDeleteRequest(req.id)} variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive hover:text-white rounded-none border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                        {isExpanded && (
+                          <TableRow className="bg-white hover:bg-white border-b-2 border-black">
+                            <TableCell colSpan={5} className="p-0">
+                              <div className="p-4 space-y-4 bg-muted/5">
+                                <div className="space-y-3">
+                                  {batch.items.map((req: any) => {
+                                    const selection = batchFulfillment[batch.id]?.[req.id] || { isAvailable: true, note: "" };
+                                    return (
+                                      <div key={req.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-black/5 pb-3">
+                                        <div className="md:col-span-5">
+                                          <p className="font-black uppercase text-xs leading-tight">{req.itemName} x{req.quantity}</p>
+                                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Request ID: {req.id.slice(-6)}</p>
+                                        </div>
+                                        <div className="md:col-span-3 flex items-center gap-1">
+                                          <Button 
+                                            size="sm"
+                                            variant={selection.isAvailable ? "default" : "outline"}
+                                            className={cn(
+                                              "h-8 flex-1 rounded-none border-2 border-black font-black uppercase text-[9px] gap-1",
+                                              selection.isAvailable ? "bg-green-600 hover:bg-green-700" : "bg-white text-muted-foreground"
+                                            )}
+                                            onClick={() => updateItemFulfillment(batch.id, req.id, true)}
+                                          >
+                                            <ThumbsUp className="h-3.5 w-3.5" /> Good
+                                          </Button>
+                                          <Button 
+                                            size="sm"
+                                            variant={!selection.isAvailable ? "destructive" : "outline"}
+                                            className={cn(
+                                              "h-8 flex-1 rounded-none border-2 border-black font-black uppercase text-[9px] gap-1",
+                                              !selection.isAvailable ? "bg-red-600 hover:bg-red-700" : "bg-white text-muted-foreground"
+                                            )}
+                                            onClick={() => updateItemFulfillment(batch.id, req.id, false)}
+                                          >
+                                            <ThumbsDown className="h-3.5 w-3.5" /> Bad
+                                          </Button>
+                                        </div>
+                                        <div className="md:col-span-4">
+                                          {!selection.isAvailable && (
+                                            <Input 
+                                              placeholder="Reason (Optional)"
+                                              value={selection.note}
+                                              onChange={(e) => updateItemFulfillment(batch.id, req.id, false, e.target.value)}
+                                              className="h-8 border-2 border-black rounded-none text-[10px] font-bold"
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                                <div className="flex justify-end pt-2">
+                                  <Button 
+                                    onClick={() => handleProcessBatch(batch)}
+                                    disabled={isSubmitting}
+                                    className="bg-black text-white font-black rounded-none h-12 px-8 uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
+                                  >
+                                    {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                                    Complete Batch Fulfillment
+                                  </Button>
+                                </div>
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </React.Fragment>
                     );
                   })
@@ -677,7 +806,7 @@ export default function DispatchPage() {
                             <Button size="icon" variant="ghost" asChild className="rounded-none border-2 border-transparent hover:border-black">
                               <Link href={`/dispatch/${dispatch.id}`}><ArrowRight className="h-4 w-4" /></Link>
                             </Button>
-                            <Button size="icon" variant="ghost" onClick={() => handleDeleteDispatch(dispatch)} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => { if(window.confirm("Delete log?")) deleteDocumentNonBlocking(doc(firestore, "inventoryDispatches", dispatch.id))}} className="rounded-none text-destructive hover:bg-destructive hover:text-white border-2 border-transparent hover:border-black"><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -720,5 +849,3 @@ export default function DispatchPage() {
     </div>
   )
 }
-
-    

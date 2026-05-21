@@ -67,6 +67,7 @@ import { toast } from "@/hooks/use-toast"
 import { notifyDispatch } from "@/ai/flows/notify-dispatch-flow"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
 export default function DispatchPage() {
   const { user, isUserLoading } = useUser()
@@ -719,3 +720,5 @@ export default function DispatchPage() {
     </div>
   )
 }
+
+    

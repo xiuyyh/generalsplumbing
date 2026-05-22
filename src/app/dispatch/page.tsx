@@ -206,20 +206,14 @@ export default function DispatchPage() {
     setIsSubmitting(true);
 
     const selections = batchFulfillment[batch.id] || {};
-    const unselectedItems = batch.items.filter((item: any) => selections[item.id] === undefined);
-
-    if (unselectedItems.length > 0) {
-      toast({ variant: "destructive", title: "Incomplete Selection", description: "Please mark every item as Good or Bad before complete processing." });
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
       const fbBatch = writeBatch(firestore);
       const notificationItems: any[] = [];
 
       for (const req of batch.items) {
-        const selection = selections[req.id];
+        // Default to isAvailable: true if no explicit selection was made in state
+        const selection = selections[req.id] || { isAvailable: true, note: "" };
         const reqRef = doc(firestore, "materialRequests", req.id);
 
         if (selection.isAvailable) {

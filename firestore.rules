@@ -8,12 +8,15 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // Helper to get user document data safely
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
+    // Check if user profile exists and is approved or is an admin
     function isApproved() {
-      return isSignedIn() && (getUserData().status == 'approved' || getUserData().role == 'ADMIN');
+      let userData = getUserData();
+      return isSignedIn() && (userData.status == 'approved' || userData.role == 'ADMIN');
     }
     
     function isAdmin() {
@@ -31,13 +34,13 @@ service cloud.firestore {
 
     // Attendance & QR Rules
     match /attendanceTokens/{tokenId} {
-      allow read: if isApproved();
+      allow read: if isSignedIn(); // Allow reading tokens for any signed in user to check status
       allow write: if isAdmin();
     }
 
     match /timeEntries/{entryId} {
       allow read: if isApproved() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if isApproved() && request.auth.uid == request.resource.data.userId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
       allow update: if isApproved() && (request.auth.uid == resource.data.userId || isAdmin());
       allow delete: if isAdmin();
     }
@@ -71,7 +74,7 @@ service cloud.firestore {
       allow write: if isApproved() && (getUserData().role == 'PUNCH_LIST' || isAdmin());
     }
 
-    // Global App Settings (Public for Login Screen)
+    // Global App Settings (Public for Login Screen and Bootstrapping)
     match /appSettings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

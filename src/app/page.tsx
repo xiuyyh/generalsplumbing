@@ -53,30 +53,29 @@ export default function Dashboard() {
   const isAdmin = role === "ADMIN"
   const isApproved = profile?.status === "approved" || isAdmin
 
-  // GUARDED QUERIES: Only fire if user is approved AND has the right role
+  // GUARDED QUERIES: Wait for profile to avoid evaluation race conditions
   const staffQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isAdmin) return null
+    if (!firestore || !user || !profile || !isAdmin) return null
     return query(collection(firestore, "users"), where("status", "==", "approved"))
-  }, [firestore, user, isAdmin])
+  }, [firestore, user, profile, isAdmin])
   const { data: staffMembers } = useCollection(staffQuery)
 
   const inventoryQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
+    if (!firestore || !user || !profile) return null
     return collection(firestore, "inventoryItems")
-  }, [firestore, user])
+  }, [firestore, user, profile])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
   const punchListQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isApproved) return null
-    // Only fetch for admins or those with punch list access to avoid rule errors
+    if (!firestore || !user || !profile || !isApproved) return null
     if (!isAdmin && role !== "PUNCH_LIST") return null
     return collection(firestore, "punchLists")
-  }, [firestore, user, isApproved, isAdmin, role])
+  }, [firestore, user, profile, isApproved, isAdmin, role])
   const { data: punchLists } = useCollection(punchListQuery)
 
   const recentEntriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isApproved) return null
-    // Non-admins should only see their own recent entries
+    if (!firestore || !user || !profile || !isApproved) return null
+    // Composite Index Required: userId (Asc) + clockInTime (Desc)
     if (isAdmin) {
       return query(collection(firestore, "timeEntries"), orderBy("clockInTime", "desc"), limit(5))
     } else {
@@ -87,7 +86,7 @@ export default function Dashboard() {
         limit(5)
       )
     }
-  }, [firestore, user, isApproved, isAdmin])
+  }, [firestore, user, profile, isApproved, isAdmin])
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
   const formatTime = (isoString: string) => {

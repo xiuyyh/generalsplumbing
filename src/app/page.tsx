@@ -53,16 +53,14 @@ export default function Dashboard() {
   const isAdmin = role === "ADMIN"
   const isApproved = profile?.status === "approved" || isAdmin
 
-  // CRITICAL: Guard all queries to only fire when user is approved
-  // This prevents permission errors for newly registered or pending users
+  // GUARDED QUERIES: Only fire if user is approved AND has the right role
   const staffQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isApproved) return null
+    if (!firestore || !user || !isAdmin) return null
     return query(collection(firestore, "users"), where("status", "==", "approved"))
-  }, [firestore, user, isApproved])
+  }, [firestore, user, isAdmin])
   const { data: staffMembers } = useCollection(staffQuery)
 
   const inventoryQuery = useMemoFirebase(() => {
-    // Inventory is now readable by all signed-in users via rules update
     if (!firestore || !user) return null
     return collection(firestore, "inventoryItems")
   }, [firestore, user])
@@ -70,14 +68,26 @@ export default function Dashboard() {
 
   const punchListQuery = useMemoFirebase(() => {
     if (!firestore || !user || !isApproved) return null
+    // Only fetch for admins or those with punch list access to avoid rule errors
+    if (!isAdmin && role !== "PUNCH_LIST") return null
     return collection(firestore, "punchLists")
-  }, [firestore, user, isApproved])
+  }, [firestore, user, isApproved, isAdmin, role])
   const { data: punchLists } = useCollection(punchListQuery)
 
   const recentEntriesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !isApproved) return null
-    return query(collection(firestore, "timeEntries"), orderBy("clockInTime", "desc"), limit(5))
-  }, [firestore, user, isApproved])
+    // Non-admins should only see their own recent entries
+    if (isAdmin) {
+      return query(collection(firestore, "timeEntries"), orderBy("clockInTime", "desc"), limit(5))
+    } else {
+      return query(
+        collection(firestore, "timeEntries"), 
+        where("userId", "==", user.uid),
+        orderBy("clockInTime", "desc"), 
+        limit(5)
+      )
+    }
+  }, [firestore, user, isApproved, isAdmin])
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
   const formatTime = (isoString: string) => {
@@ -127,6 +137,7 @@ export default function Dashboard() {
     )
   }
 
+  // WORKER VIEW
   if (role === "WORKER" && !isAdmin) {
     return (
       <div className="max-w-2xl mx-auto mt-12 space-y-8">
@@ -154,10 +165,30 @@ export default function Dashboard() {
             <Link href="/requests/warranty">Warranty Requests</Link>
           </Button>
         </div>
+
+        {timeEntries && timeEntries.length > 0 && (
+          <Card className="border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] mt-8">
+            <CardHeader className="bg-muted/10 border-b-2 border-black py-3">
+              <CardTitle className="text-sm font-black uppercase">My Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {timeEntries.map(entry => (
+                <div key={entry.id} className="p-3 border-b border-black/5 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-black" />
+                    <span className="text-xs font-bold uppercase">{formatTime(entry.clockInTime)}</span>
+                  </div>
+                  <Badge className="bg-black text-white text-[8px] rounded-none px-1 uppercase">{entry.clockOutTime ? 'Shift Done' : 'On Site'}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     )
   }
 
+  // ADMIN / MANAGEMENT VIEW
   const lowStock = inventoryItems?.filter(i => i.currentStock <= (i.reorderThreshold || 0)) || []
   const activePunchTasks = punchLists?.filter(p => p.status !== 'completed') || []
 

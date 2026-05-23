@@ -8,41 +8,46 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper to get user document data safely
+    // Helper to check if a user document exists and get its data safely
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
     // Check if user profile exists and is approved or is an admin
-    // Added exists() check to prevent evaluation errors when profile is missing
     function isApproved() {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             userExists() &&
              (getUserData().status == 'approved' || getUserData().role == 'ADMIN');
     }
     
     function isAdmin() {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             userExists() && 
              getUserData().role == 'ADMIN';
     }
 
     // User Profile Rules
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      // Allow a user to get their own profile even if pending
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      // Admins can manage all profiles
+      allow read, write: if isAdmin();
+      // Allow initial profile creation during signup
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
     }
 
     // Attendance & QR Rules
     match /attendanceTokens/{tokenId} {
-      allow read: if isSignedIn(); // Allow reading tokens for any signed in user to check status
+      allow read: if isSignedIn(); 
       allow write: if isAdmin();
     }
 
     match /timeEntries/{entryId} {
+      // Workers can see their own logs, Admins see all
       allow read: if isApproved() && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
       allow update: if isApproved() && (request.auth.uid == resource.data.userId || isAdmin());
@@ -51,15 +56,16 @@ service cloud.firestore {
 
     // Material Request & Inventory Rules
     match /materialRequests/{requestId} {
-      allow read: if isApproved();
+      // Approved users can create/read their own requests
       allow create: if isApproved();
+      allow read: if isApproved() && (request.auth.uid == resource.data.workerUid || isAdmin() || getUserData().role == 'INVENTORY');
+      // Management roles can update status
       allow update: if isApproved() && (getUserData().role == 'INVENTORY' || isAdmin());
       allow delete: if isAdmin();
     }
 
     match /inventoryItems/{itemId} {
-      // Relaxed to isSignedIn so workers/pending users can see parts for requests
-      // while they wait for full approval, preventing dashboard crashes.
+      // All signed-in users can view the catalog to build requests
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isApproved() && getUserData().role == 'INVENTORY');
     }

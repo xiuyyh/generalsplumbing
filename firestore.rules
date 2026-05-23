@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Core authorization functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -19,6 +20,7 @@ service cloud.firestore {
       return isSignedIn() && getUserData().role == 'ADMIN';
     }
 
+    // User Profile Rules
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
@@ -27,6 +29,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Attendance & QR Rules
     match /attendanceTokens/{tokenId} {
       allow read: if isApproved();
       allow write: if isAdmin();
@@ -39,6 +42,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Material Request & Inventory Rules
     match /materialRequests/{requestId} {
       allow read: if isApproved();
       allow create: if isApproved();
@@ -51,11 +55,23 @@ service cloud.firestore {
       allow write: if isAdmin() || (isApproved() && getUserData().role == 'INVENTORY');
     }
 
+    match /inventoryDispatches/{dispatchId} {
+      allow read: if isApproved();
+      allow write: if isAdmin() || (isApproved() && getUserData().role == 'INVENTORY');
+    }
+
+    match /bundles/{bundleId} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // Punch List Rules
     match /punchLists/{punchId} {
       allow read: if isApproved() && (getUserData().role == 'PUNCH_LIST' || isAdmin());
       allow write: if isApproved() && (getUserData().role == 'PUNCH_LIST' || isAdmin());
     }
 
+    // Global App Settings (Public for Login Screen)
     match /appSettings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

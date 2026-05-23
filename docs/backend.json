@@ -95,6 +95,18 @@
         "status": { "type": "string", "enum": ["submitted", "completed"] },
         "photoUrls": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "Bundle": {
+      "title": "Bundle",
+      "type": "object",
+      "description": "Pre-filled material groups for specific phases.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -128,6 +140,10 @@
     "/punchLists/{punchListId}": {
       "schema": "#/backend/entities/PunchList",
       "description": "Job site deficiency tracking."
+    },
+    "/bundles/{bundleId}": {
+      "schema": "#/backend/entities/Bundle",
+      "description": "Phase-specific procurement bundles."
     }
   }
 }

@@ -49,29 +49,35 @@ export default function Dashboard() {
     setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
   }, [user, isUserLoading, router])
 
+  const role = profile?.role || "WORKER"
+  const isAdmin = role === "ADMIN"
+  const isApproved = profile?.status === "approved" || isAdmin
+
+  // CRITICAL: Guard all queries to only fire when user is approved
+  // This prevents permission errors for newly registered or pending users
   const staffQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
-    // Count all approved personnel
+    if (!firestore || !user || !isApproved) return null
     return query(collection(firestore, "users"), where("status", "==", "approved"))
-  }, [firestore, user])
+  }, [firestore, user, isApproved])
   const { data: staffMembers } = useCollection(staffQuery)
 
   const inventoryQuery = useMemoFirebase(() => {
+    // Inventory is now readable by all signed-in users via rules update
     if (!firestore || !user) return null
     return collection(firestore, "inventoryItems")
   }, [firestore, user])
   const { data: inventoryItems } = useCollection(inventoryQuery)
 
   const punchListQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
+    if (!firestore || !user || !isApproved) return null
     return collection(firestore, "punchLists")
-  }, [firestore, user])
+  }, [firestore, user, isApproved])
   const { data: punchLists } = useCollection(punchListQuery)
 
   const recentEntriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null
+    if (!firestore || !user || !isApproved) return null
     return query(collection(firestore, "timeEntries"), orderBy("clockInTime", "desc"), limit(5))
-  }, [firestore, user])
+  }, [firestore, user, isApproved])
   const { data: timeEntries } = useCollection(recentEntriesQuery)
 
   const formatTime = (isoString: string) => {
@@ -95,10 +101,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  const role = profile?.role || "WORKER"
-  const isAdmin = role === "ADMIN"
-  const isApproved = profile?.status === "approved" || isAdmin
 
   if (!isApproved) {
     return (

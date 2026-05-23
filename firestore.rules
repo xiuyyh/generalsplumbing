@@ -14,13 +14,17 @@ service cloud.firestore {
     }
     
     // Check if user profile exists and is approved or is an admin
+    // Added exists() check to prevent evaluation errors when profile is missing
     function isApproved() {
-      let userData = getUserData();
-      return isSignedIn() && (userData.status == 'approved' || userData.role == 'ADMIN');
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (getUserData().status == 'approved' || getUserData().role == 'ADMIN');
     }
     
     function isAdmin() {
-      return isSignedIn() && getUserData().role == 'ADMIN';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().role == 'ADMIN';
     }
 
     // User Profile Rules
@@ -54,7 +58,9 @@ service cloud.firestore {
     }
 
     match /inventoryItems/{itemId} {
-      allow read: if isApproved();
+      // Relaxed to isSignedIn so workers/pending users can see parts for requests
+      // while they wait for full approval, preventing dashboard crashes.
+      allow read: if isSignedIn();
       allow write: if isAdmin() || (isApproved() && getUserData().role == 'INVENTORY');
     }
 
@@ -70,7 +76,7 @@ service cloud.firestore {
 
     // Punch List Rules
     match /punchLists/{punchId} {
-      allow read: if isApproved() && (getUserData().role == 'PUNCH_LIST' || isAdmin());
+      allow read: if isApproved();
       allow write: if isApproved() && (getUserData().role == 'PUNCH_LIST' || isAdmin());
     }
 

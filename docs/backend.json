@@ -29,7 +29,7 @@
     "MaterialRequest": {
       "title": "MaterialRequest",
       "type": "object",
-      "description": "A request for materials submitted by a worker.",
+      "description": "A request for materials submitted by a worker. Supports drill-down audit.",
       "properties": {
         "id": { "type": "string" },
         "workerUid": { "type": "string" },
@@ -41,7 +41,8 @@
         "deliveryAddress": { "type": "string" },
         "requestTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "dispatched", "rejected"] },
-        "rejectionNote": { "type": "string" }
+        "rejectionNote": { "type": "string" },
+        "dispatchedAt": { "type": "string", "format": "date-time" }
       }
     },
     "InventoryDispatch": {

@@ -14,7 +14,8 @@ import {
   Hammer,
   UserCog,
   QrCode,
-  Scan
+  Scan,
+  SearchCode
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -108,7 +109,7 @@ export function AppSidebar() {
             )}
 
             {canAccessRequests && (
-              <Collapsible className="group/collapsible">
+              <Collapsible className="group/collapsible" defaultOpen={false}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className="h-10 rounded-none font-black uppercase text-[11px]">
@@ -155,6 +156,11 @@ export function AppSidebar() {
 
             {isAdmin && (
               <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/workers")} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/admin/workers"><SearchCode /><span>Worker Logs</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/clock"} className="h-10 rounded-none font-black uppercase text-[11px]">
                     <Link href="/clock"><QrCode /><span>QR Generator</span></Link>

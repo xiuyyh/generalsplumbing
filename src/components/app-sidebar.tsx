@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -15,7 +16,8 @@ import {
   UserCog,
   QrCode,
   Scan,
-  SearchCode
+  SearchCode,
+  MapPin
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -159,6 +161,11 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/workers")} className="h-10 rounded-none font-black uppercase text-[11px]">
                     <Link href="/admin/workers"><SearchCode /><span>Worker Logs</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/sites")} className="h-10 rounded-none font-black uppercase text-[11px]">
+                    <Link href="/admin/sites"><MapPin /><span>Site Audit</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

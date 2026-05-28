@@ -257,7 +257,7 @@ export default function WorkerDetailPage() {
                             {sum.itemName}
                             <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
-                          <div className="text-[9px] font-bold text-muted-foreground uppercase">Inventory Code: {sum.itemId.slice(-6)}</div>
+                          <div className="text-[9px] font-bold text-muted-foreground uppercase">Item Reference: {sum.itemId.slice(-6)}</div>
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge className="bg-black text-white rounded-none font-black px-2 h-5">x {sum.totalQuantity}</Badge>

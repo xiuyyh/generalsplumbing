@@ -36,7 +36,7 @@ export default function WorkerTrackingPage() {
 
   const workersQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    // List all approved workers/admins for auditing
+    // List all approved users ordered by name
     return query(
       collection(firestore, "users"), 
       where("status", "==", "approved"),
@@ -75,17 +75,20 @@ export default function WorkerTrackingPage() {
     )
   }
 
+  // Filter to only show Admin and Worker roles in this audit view
+  const filteredWorkers = workers?.filter(w => w.role === "ADMIN" || w.role === "WORKER") || []
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-4xl font-black uppercase tracking-tighter flex items-center gap-3">
           <SearchCode className="h-10 w-10" /> Worker Logs
         </h1>
-        <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Select personnel to view historical requests</p>
+        <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Auditing Material Procurement for Field Personnel</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {workers?.map((worker) => (
+        {filteredWorkers.map((worker) => (
           <Card key={worker.id} className="border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all cursor-pointer overflow-hidden group">
             <Link href={`/admin/workers/${worker.uid}`}>
               <CardHeader className="bg-black text-white py-4 flex flex-row items-center justify-between">
@@ -109,9 +112,9 @@ export default function WorkerTrackingPage() {
             </Link>
           </Card>
         ))}
-        {(!workers || workers.length === 0) && (
+        {filteredWorkers.length === 0 && (
           <div className="col-span-full py-20 text-center border-4 border-black border-dashed bg-muted/20">
-             <p className="text-xs font-black uppercase text-muted-foreground tracking-widest">No personnel records found.</p>
+             <p className="text-xs font-black uppercase text-muted-foreground tracking-widest">No matching personnel records found.</p>
           </div>
         )}
       </div>

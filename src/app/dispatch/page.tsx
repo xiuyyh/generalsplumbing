@@ -59,13 +59,12 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Layers,
   FileText,
   PackageCheck,
-  PackageX,
   ThumbsUp,
   ThumbsDown,
-  Info
+  Zap,
+  PackageX
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { notifyDispatch, notifyBatchDispatch } from "@/ai/flows/notify-dispatch-flow"
@@ -78,9 +77,14 @@ export default function DispatchPage() {
   const firestore = useFirestore()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Manual Form State
   const [items, setItems] = useState([
     { id: Date.now(), inventoryItemId: "", quantity: 1 }
   ])
+  const [assignedTo, setAssignedTo] = useState("")
+  const [purpose, setPurpose] = useState("")
+  const [deliveryAddress, setDeliveryAddress] = useState("")
   
   // Search state for searchable item picker
   const [inventorySearch, setInventorySearch] = useState("")
@@ -129,7 +133,7 @@ export default function DispatchPage() {
 
   const recentDispatchesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null
-    return query(collection(firestore, "inventoryDispatches"), orderBy("dispatchDateTime", "desc"))
+    return query(collection(firestore, "inventoryDispatches"), orderBy("dispatchDateTime", "desc"), where("dispatchDateTime", ">=", new Date(Date.now() - 86400000 * 7).toISOString()))
   }, [firestore, user])
   const { data: dispatches, isLoading: isDispLoading } = useCollection(recentDispatchesQuery)
 
@@ -138,6 +142,13 @@ export default function DispatchPage() {
     return query(collection(firestore, "materialRequests"), where("status", "==", "pending"), orderBy("requestTime", "desc"))
   }, [firestore, user])
   const { data: pendingRequests, isLoading: isReqLoading } = useCollection(pendingRequestsQuery)
+
+  // Query for Rejected items to act as a "Waitlist" for manual entry
+  const rejectedRequestsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null
+    return query(collection(firestore, "materialRequests"), where("status", "==", "rejected"), orderBy("requestTime", "desc"))
+  }, [firestore, user])
+  const { data: rejectedRequests } = useCollection(rejectedRequestsQuery)
 
   // Group pending requests by batch (Worker + RequestTime)
   const groupedRequests = React.useMemo(() => {
@@ -212,12 +223,10 @@ export default function DispatchPage() {
       const notificationItems: any[] = [];
 
       for (const req of batch.items) {
-        // Default to isAvailable: true if no explicit selection was made in state
         const selection = selections[req.id] || { isAvailable: true, note: "" };
         const reqRef = doc(firestore, "materialRequests", req.id);
 
         if (selection.isAvailable) {
-          // Authorize/Dispatch
           const dispatchRef = doc(collection(firestore, "inventoryDispatches"));
           const itemRef = doc(firestore, "inventoryItems", req.itemId);
           const inventoryItem = inventoryItems?.find(i => i.id === req.itemId);
@@ -250,7 +259,6 @@ export default function DispatchPage() {
             isAvailable: true
           });
         } else {
-          // Reject/Decline
           fbBatch.update(reqRef, {
             status: "rejected",
             rejectionNote: selection.note,
@@ -281,7 +289,6 @@ export default function DispatchPage() {
 
       setExpandedBatches(prev => prev.filter(id => id !== batch.id));
     } catch (error) {
-      console.error("Batch processing error:", error);
       toast({ variant: "destructive", title: "Processing Error", description: "Batch commit failed." });
     } finally {
       setIsSubmitting(false);
@@ -350,7 +357,7 @@ export default function DispatchPage() {
       rejectedAt: new Date().toISOString()
     })
     
-    toast({ variant: "destructive", title: "Request Rejected", description: "Worker material request has been declined." })
+    toast({ variant: "destructive", title: "Request Rejected", description: "Item moved to Waitlist." })
     setIsDeclineDialogOpen(false)
     setRejectionRequestId(null)
   }
@@ -369,17 +376,28 @@ export default function DispatchPage() {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePrefillFromRejection = (req: any) => {
+    setAssignedTo(req.workerUid)
+    setPurpose(req.category.toUpperCase())
+    setDeliveryAddress(req.deliveryAddress)
+    setItems([{ id: Date.now(), inventoryItemId: req.itemId, quantity: req.quantity }])
+    
+    toast({ 
+      title: "Form Prefilled", 
+      description: `Loaded request for ${req.itemName} to ${req.workerName}.`
+    })
+    
+    // Smooth scroll to form
+    const formEl = document.getElementById('manual-dispatch-form')
+    if (formEl) formEl.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!firestore || !user || isSubmitting) return
     setIsSubmitting(true)
 
-    const formData = new FormData(e.currentTarget)
-    const assignedToStaffMemberId = formData.get("assignedTo") as string
-    const purpose = formData.get("purpose") as string
-    const deliveryAddress = formData.get("deliveryAddress") as string
-
-    const assignedStaff = staffMembers?.find(s => s.uid === assignedToStaffMemberId || s.id === assignedToStaffMemberId);
+    const assignedStaff = staffMembers?.find(s => (s.uid || s.id) === assignedTo);
     const staffName = assignedStaff ? assignedStaff.displayName : "Unknown";
 
     const selectedItems = items.filter(i => i.inventoryItemId)
@@ -403,7 +421,7 @@ export default function DispatchPage() {
           quantity: Number(item.quantity),
           dispatchDateTime: new Date().toISOString(),
           dispatchedByStaffMemberId: user.uid,
-          assignedToStaffMemberId,
+          assignedToStaffMemberId: assignedTo,
           purpose,
           deliveryAddress,
           createdAt: serverTimestamp()
@@ -437,6 +455,9 @@ export default function DispatchPage() {
       }
 
       setItems([{ id: Date.now(), inventoryItemId: "", quantity: 1 }])
+      setAssignedTo("")
+      setPurpose("")
+      setDeliveryAddress("")
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to record dispatch." })
     } finally {
@@ -615,7 +636,47 @@ export default function DispatchPage() {
         </Card>
       </div>
 
-      <div className="space-y-4">
+      {/* REJECTION WAITLIST / PREFILL CARDS */}
+      {rejectedRequests && rejectedRequests.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2"><Zap className="h-5 w-5 text-amber-500 fill-amber-500" /><h2 className="text-2xl font-black uppercase">Rejection Waitlist / Prefill Cards</h2></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+             {rejectedRequests.slice(0, 6).map((req) => (
+               <Card key={req.id} className="border-4 border-black rounded-none bg-amber-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform overflow-hidden relative">
+                 <Button 
+                   size="icon" 
+                   variant="ghost" 
+                   className="absolute top-1 right-1 h-6 w-6 text-destructive hover:bg-destructive hover:text-white rounded-none"
+                   onClick={() => deleteDocumentNonBlocking(doc(firestore, "materialRequests", req.id))}
+                 >
+                   <Trash2 className="h-3 w-3" />
+                 </Button>
+                 <CardContent className="p-4 space-y-3">
+                   <div className="space-y-1">
+                     <p className="text-[10px] font-black uppercase text-muted-foreground">Declined Material</p>
+                     <p className="font-black uppercase text-sm leading-tight">{req.itemName} x{req.quantity}</p>
+                   </div>
+                   <div className="flex justify-between items-end border-t border-black/10 pt-2">
+                     <div className="space-y-0.5">
+                       <p className="text-[8px] font-black uppercase text-muted-foreground">Assigned to</p>
+                       <p className="text-[10px] font-black uppercase">{req.workerName}</p>
+                     </div>
+                     <Button 
+                       size="sm" 
+                       onClick={() => handlePrefillFromRejection(req)}
+                       className="bg-black text-white h-7 rounded-none text-[8px] font-black uppercase px-2 hover:bg-black/90"
+                     >
+                       <Plus className="h-2.5 w-2.5 mr-1" /> Quick Prefill
+                     </Button>
+                   </div>
+                 </CardContent>
+               </Card>
+             ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4" id="manual-dispatch-form">
         <div className="flex items-center gap-2"><Plus className="h-5 w-5" /><h2 className="text-2xl font-black uppercase">Manual Dispatch Entry</h2></div>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <Card className="lg:col-span-7 border-2 border-black rounded-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
@@ -697,7 +758,7 @@ export default function DispatchPage() {
                     <Input 
                       type="number" 
                       min="1" 
-                      defaultValue="1" 
+                      value={row.quantity} 
                       onChange={(e) => handleItemChange(row.id, "quantity", e.target.value)} 
                       className="h-10 border-2 border-black rounded-none font-black text-center" 
                     />
@@ -733,7 +794,7 @@ export default function DispatchPage() {
             <CardContent className="space-y-4 pt-6">
               <div className="space-y-1">
                 <Label className="font-black uppercase text-[10px]">Assigned Technician</Label>
-                <Select name="assignedTo" required>
+                <Select value={assignedTo} onValueChange={setAssignedTo}>
                   <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold">
                     <SelectValue placeholder="Choose personnel..." />
                   </SelectTrigger>
@@ -748,7 +809,7 @@ export default function DispatchPage() {
               </div>
               <div className="space-y-1">
                 <Label className="font-black uppercase text-[10px]">Job Phase / Category</Label>
-                <Select name="purpose" required>
+                <Select value={purpose} onValueChange={setPurpose}>
                   <SelectTrigger className="h-10 border-2 border-black rounded-none font-bold">
                     <SelectValue placeholder="Select Phase..." />
                   </SelectTrigger>
@@ -763,7 +824,7 @@ export default function DispatchPage() {
               </div>
               <div className="space-y-1">
                 <Label className="font-black uppercase text-[10px]">Delivery Address</Label>
-                <Input name="deliveryAddress" required className="h-10 border-2 border-black rounded-none font-bold" />
+                <Input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} required className="h-10 border-2 border-black rounded-none font-bold" />
               </div>
               <Button 
                 type="submit" 
@@ -796,7 +857,7 @@ export default function DispatchPage() {
                 ) : (
                   dispatches?.map((dispatch) => {
                     const item = inventoryItems?.find(i => i.id === dispatch.inventoryItemId)
-                    const staff = staffMembers?.find(s => s.uid === dispatch.assignedToStaffMemberId || s.id === dispatch.assignedToStaffMemberId)
+                    const staff = staffMembers?.find(s => (s.uid || s.id) === dispatch.assignedToStaffMemberId)
                     return (
                       <TableRow key={dispatch.id} className="border-b-2 border-black/10 hover:bg-muted/30">
                         <TableCell className="font-black uppercase text-xs">{item?.name} x{dispatch.quantity}</TableCell>

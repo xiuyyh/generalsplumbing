@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, where, orderBy } from "firebase/firestore"
 import { useParams, useRouter } from "next/navigation"
@@ -27,10 +28,14 @@ import {
   Package,
   User,
   History,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+
+const ITEMS_PER_PAGE = 7
 
 export default function WorkerItemHistoryPage() {
   const { user: authUser, isUserLoading } = useUser()
@@ -38,6 +43,7 @@ export default function WorkerItemHistoryPage() {
   const params = useParams()
   const workerId = params.id as string
   const itemId = params.itemId as string
+  const [currentPage, setCurrentPage] = useState(1)
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null
@@ -77,6 +83,10 @@ export default function WorkerItemHistoryPage() {
 
   const itemName = history && history.length > 0 ? history[0].itemName : "Unknown Material"
 
+  // Pagination Logic
+  const totalPages = Math.ceil((history?.length || 0) / ITEMS_PER_PAGE)
+  const paginatedHistory = (history || []).slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
       <div className="flex items-center justify-between">
@@ -113,7 +123,7 @@ export default function WorkerItemHistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history?.map((req) => (
+                {paginatedHistory.map((req) => (
                   <TableRow key={req.id} className="border-b-2 border-black/10 hover:bg-muted/20">
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -156,6 +166,15 @@ export default function WorkerItemHistoryPage() {
                 )}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t-2 border-black bg-muted/5">
+                <p className="text-[10px] font-black uppercase text-muted-foreground">Page {currentPage} of {totalPages}</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
         

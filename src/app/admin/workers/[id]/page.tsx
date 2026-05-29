@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, where, orderBy } from "firebase/firestore"
 import { useParams, useRouter } from "next/navigation"
@@ -32,11 +32,14 @@ import {
   ShieldCheck,
   FileText,
   ChevronRight,
+  ChevronLeft,
   ClipboardList
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+
+const ITEMS_PER_PAGE = 7
 
 export default function WorkerDetailPage() {
   const { user: authUser, isUserLoading } = useUser()
@@ -47,6 +50,7 @@ export default function WorkerDetailPage() {
 
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null
@@ -85,7 +89,6 @@ export default function WorkerDetailPage() {
     }> = {}
 
     requests.forEach(req => {
-      // Apply date filters if any
       const reqDate = new Date(req.requestTime)
       if (startDate) {
         const start = new Date(startDate)
@@ -116,6 +119,11 @@ export default function WorkerDetailPage() {
 
     return Object.values(summary).sort((a, b) => b.totalQuantity - a.totalQuantity)
   }, [requests, startDate, endDate])
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [startDate, endDate])
 
   if (isUserLoading || isProfileLoading || isWorkerLoading) {
     return (
@@ -149,6 +157,10 @@ export default function WorkerDetailPage() {
       </div>
     )
   }
+
+  // Pagination Logic
+  const totalPages = Math.ceil(itemSummary.length / ITEMS_PER_PAGE)
+  const paginatedItems = itemSummary.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
   return (
     <div className="space-y-8 pb-20">
@@ -246,7 +258,7 @@ export default function WorkerDetailPage() {
                   {isRequestsLoading ? (
                     <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                   ) : (
-                    itemSummary.map((sum) => (
+                    paginatedItems.map((sum) => (
                       <TableRow 
                         key={sum.itemId} 
                         className="border-b-2 border-black/10 hover:bg-muted/30 cursor-pointer group"
@@ -281,6 +293,15 @@ export default function WorkerDetailPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t-2 border-black bg-muted/5">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground">Page {currentPage} of {totalPages}</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
           

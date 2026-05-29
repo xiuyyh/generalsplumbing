@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, query, where, orderBy } from "firebase/firestore"
 import { useParams, useRouter } from "next/navigation"
@@ -30,12 +29,15 @@ import {
   MapPin, 
   Clock,
   ChevronRight,
+  ChevronLeft,
   ClipboardList,
   User,
   History
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+
+const ITEMS_PER_PAGE = 7
 
 export default function SiteDetailPage() {
   const { user: authUser, isUserLoading } = useUser()
@@ -46,6 +48,10 @@ export default function SiteDetailPage() {
 
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  
+  // Pagination State
+  const [summaryPage, setSummaryPage] = useState(1)
+  const [historyPage, setHistoryPage] = useState(1)
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null
@@ -123,6 +129,22 @@ export default function SiteDetailPage() {
     return Object.values(summary).sort((a, b) => b.totalQuantity - a.totalQuantity)
   }, [dispatches, inventoryItems, startDate, endDate])
 
+  const filteredHistory = useMemo(() => {
+    if (!dispatches) return []
+    return dispatches.filter(d => {
+      const dDate = new Date(d.dispatchDateTime)
+      if (startDate && dDate < new Date(startDate)) return false
+      if (endDate && dDate > new Date(endDate)) return false
+      return true
+    })
+  }, [dispatches, startDate, endDate])
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setSummaryPage(1)
+    setHistoryPage(1)
+  }, [startDate, endDate])
+
   if (isUserLoading || isProfileLoading || isDispatchesLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -134,6 +156,13 @@ export default function SiteDetailPage() {
 
   const isAdmin = adminProfile?.role === "ADMIN"
   if (!isAdmin) return null
+
+  // Pagination Logic
+  const totalSummaryPages = Math.ceil(itemSummary.length / ITEMS_PER_PAGE)
+  const paginatedSummary = itemSummary.slice((summaryPage - 1) * ITEMS_PER_PAGE, summaryPage * ITEMS_PER_PAGE)
+
+  const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE)
+  const paginatedHistory = filteredHistory.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE)
 
   return (
     <div className="space-y-8 pb-20">
@@ -223,7 +252,7 @@ export default function SiteDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itemSummary.map((sum) => (
+                  {paginatedSummary.map((sum) => (
                     <TableRow key={sum.itemId} className="border-b-2 border-black/10 hover:bg-muted/30">
                       <TableCell>
                         <div className="font-black uppercase text-xs">{sum.itemName}</div>
@@ -247,6 +276,15 @@ export default function SiteDetailPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalSummaryPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t-2 border-black bg-muted/5">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground">Page {summaryPage} of {totalSummaryPages}</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={summaryPage === 1} onClick={() => setSummaryPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={summaryPage === totalSummaryPages} onClick={() => setSummaryPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
           
@@ -267,12 +305,7 @@ export default function SiteDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dispatches?.filter(d => {
-                      const dDate = new Date(d.dispatchDateTime)
-                      if (startDate && dDate < new Date(startDate)) return false
-                      if (endDate && dDate > new Date(endDate)) return false
-                      return true
-                    }).slice(0, 20).map((d) => {
+                    {paginatedHistory.map((d) => {
                       const item = inventoryItems?.find(i => i.id === d.inventoryItemId)
                       const tech = users?.find(u => u.uid === d.assignedToStaffMemberId)
                       return (
@@ -291,6 +324,15 @@ export default function SiteDetailPage() {
                     })}
                   </TableBody>
                 </Table>
+                {totalHistoryPages > 1 && (
+                  <div className="flex items-center justify-between p-4 border-t-2 border-black bg-muted/5">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">Page {historyPage} of {totalHistoryPages}</p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={historyPage === 1} onClick={() => setHistoryPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8 rounded-none border-2 border-black" disabled={historyPage === totalHistoryPages} onClick={() => setHistoryPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
                </CardContent>
             </Card>
           </div>

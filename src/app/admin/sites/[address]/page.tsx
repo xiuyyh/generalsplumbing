@@ -133,8 +133,16 @@ export default function SiteDetailPage() {
     if (!dispatches) return []
     return dispatches.filter(d => {
       const dDate = new Date(d.dispatchDateTime)
-      if (startDate && dDate < new Date(startDate)) return false
-      if (endDate && dDate > new Date(endDate)) return false
+      if (startDate) {
+        const start = new Date(startDate)
+        start.setHours(0,0,0,0)
+        if (dDate < start) return false
+      }
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23,59,59,999)
+        if (dDate > end) return false
+      }
       return true
     })
   }, [dispatches, startDate, endDate])
@@ -322,6 +330,9 @@ export default function SiteDetailPage() {
                         </TableRow>
                       )
                     })}
+                    {filteredHistory.length === 0 && (
+                      <TableRow><TableCell colSpan={4} className="py-20 text-center text-[10px] font-black uppercase text-muted-foreground">No historical records found for this window.</TableCell></TableRow>
+                    )}
                   </TableBody>
                 </Table>
                 {totalHistoryPages > 1 && (

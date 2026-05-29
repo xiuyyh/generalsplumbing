@@ -116,7 +116,7 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "#/backend/entities/User",
-      "description": "User profile with role."
+      "description": "User profile with role. REQUIRES INDEX: status (Asc) + displayName (Asc)."
     },
     "/attendanceTokens/{tokenId}": {
       "schema": "#/backend/entities/AttendanceToken",
@@ -124,15 +124,15 @@
     },
     "/materialRequests/{requestId}": {
       "schema": "#/backend/entities/MaterialRequest",
-      "description": "Worker material requests."
+      "description": "Worker material requests. REQUIRES INDEX: workerUid (Asc) + status (Asc) + requestTime (Desc)."
     },
     "/inventoryDispatches/{dispatchId}": {
       "schema": "#/backend/entities/InventoryDispatch",
-      "description": "Authorized material outflow logs."
+      "description": "Authorized material outflow logs. REQUIRES INDEX: deliveryAddress (Asc) + dispatchDateTime (Desc)."
     },
     "/timeEntries/{entryId}": {
       "schema": "#/backend/entities/TimeEntry",
-      "description": "Clock in/out records."
+      "description": "Clock in/out records. REQUIRES INDEX: userId (Asc) + clockInTime (Desc)."
     },
     "/inventoryItems/{inventoryItemId}": {
       "schema": "#/backend/entities/InventoryItem",

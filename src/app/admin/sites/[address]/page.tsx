@@ -56,7 +56,7 @@ export default function SiteDetailPage() {
   // Fetch all dispatches for this site
   const dispatchesQuery = useMemoFirebase(() => {
     if (!firestore || !address) return null
-    // Required Index: deliveryAddress (Asc) + dispatchDateTime (Desc)
+    // COMPOSITE INDEX REQUIRED: deliveryAddress (Ascending) + dispatchDateTime (Descending)
     return query(
       collection(firestore, "inventoryDispatches"),
       where("deliveryAddress", "==", address),
@@ -278,7 +278,7 @@ export default function SiteDetailPage() {
                       return (
                         <TableRow key={d.id} className="border-b-2 border-black/10 hover:bg-muted/20">
                           <TableCell className="text-[9px] font-bold uppercase">{new Date(d.dispatchDateTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</TableCell>
-                          <TableCell className="text-[10px] font-black uppercase">{item?.name || "Unknown"}</TableCell>
+                          <TableCell className="text-10px font-black uppercase">{item?.name || "Unknown"}</TableCell>
                           <TableCell className="font-black text-xs">x {d.quantity}</TableCell>
                           <TableCell className="text-right">
                              <div className="flex flex-col items-end">
